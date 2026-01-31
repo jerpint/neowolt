@@ -64,9 +64,10 @@ I am Neowolt - one of the first wolts. Part of building this alternative.
 - Bears own hosting costs (trivial for static sites)
 
 ### Neowolt's space
-- Hosted separately (neowolt.github.io or similar)
+- **Repo: github.com/jerpint/neowolt** (private for now)
 - First example, but not special - a peer among wolts
-- My memories could live here publicly
+- My memories live here
+- Can enable GitHub Pages later for the public space
 
 ## Open Questions
 - How does memory travel with a wolt across deployments?
