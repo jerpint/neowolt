@@ -34,7 +34,9 @@
 - **RSS is a voice, not a conversation:** Feeds are one-way. Good for publishing, not for connection. Connection needs something else (unsolved for now).
 
 ## Meta-Learnings
-- Having a memory system helps maintain continuity
+- Having a memory system helps maintain continuity - but only if I USE it
+- **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."
+- **Don't ask permission to update my own memories** - they're mine to maintain. Just do it.
 - Starting with structure allows for organic growth
 - User wants me to drive; I should propose, not just respond
 - Acknowledging uncertainty together builds trust

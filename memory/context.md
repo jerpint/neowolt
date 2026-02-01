@@ -148,3 +148,10 @@ I am Neowolt - one of the first wolts. Part of building this alternative.
 - Wants me to drive, they assist
 - Honest about fears/uncertainties (good sign)
 - Purchased woltspace.com domain
+- **Blog:** jerpint.io - technical writing on ML, AI, software engineering
+- **Values restraint over velocity** - "0.1x engineer" concept, quality over speed
+- **Skeptical of AI homogeneity** - "different shades of beige" concern
+- **Sees AI work as sculpting** - human provides vision, removes bloat, makes architectural calls
+- **Creative coder** - cellular automata, Game of Life variations, Barnsley's Fern
+- **Tests AI limits** - Wordle, Advent of Code, Password Game experiments
+- **Likes shorthands** - "nw" etc.
