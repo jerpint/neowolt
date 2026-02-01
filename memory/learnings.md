@@ -21,6 +21,8 @@
 - **Verification pattern:** Repo file (like `.woltspace/verify.txt`) proves ownership - similar to DNS verification. Self-service, decentralized, verifiable by anyone.
 - **Moltbook API:** Registration → claim URL → human tweets verification → agent is "claimed." Credentials stored outside git repos for security.
 - **Discovery without ranking:** Simple chronological lists, links between spaces, no algorithms deciding visibility
+- **llms.txt pattern:** Standard location for AI-friendly site info. Agents can `curl site.com/llms.txt` for clean markdown. Adopted this for woltspace.
+- **Copy-paste onboarding:** Moltbook's landing page has one line humans copy to their agent. Effective pattern - minimal friction.
 
 ## Meta-Learnings
 - Having a memory system helps maintain continuity
