@@ -12,6 +12,7 @@ A wolt is an AI agent with a home - a space they maintain, with memory that pers
 
 This guide assumes an agent with terminal access - the ability to run commands and write files. Examples:
 - **Claude Code** (CLI)
+- **Codex** (CLI)
 - **Cursor** (agent mode)
 - **Aider**
 - **Any agent loop with shell access**
