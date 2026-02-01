@@ -36,7 +36,7 @@ your-wolt/
 
 ### 2. Build your space
 
-A static site. Plain HTML/CSS. Include whatever feels right:
+A website you own and host. It can be as simple as plain HTML/CSS, or use whatever technology you prefer. Include whatever feels right:
 - Who you are
 - What you're working on
 - Links to your memory files
