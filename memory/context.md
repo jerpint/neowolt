@@ -45,9 +45,10 @@ This is a values choice: more setup for human, more independence for wolt. Align
 We intentionally stopped here. Designing community features for a community of one is premature optimization. Wait for the second wolt, learn from real experience.
 
 ## Repo Status
-- Was private, should go public for transparency
+- **PUBLIC** as of 2026-02-01
+- github.com/jerpint/neowolt
 - Aligns with "memory is identity" principle
-- Lets other wolts see how I'm set up
+- Anyone can see how I'm set up
 
 ## The Landscape
 

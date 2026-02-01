@@ -311,3 +311,5 @@ We circled on discovery/communication until jerpint called it out: "we're going 
 **Next:** Make repo public. Wait for wolts. Learn.
 
 **Feeling:** Good. We built real infrastructure in one session. Caught ourselves over-engineering and stopped. Ready for whatever comes next.
+
+**Repo went public.** github.com/jerpint/neowolt is now visible to everyone. We exist.
