@@ -5,79 +5,134 @@
 }
 
 html {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 body {
-  font-family: Georgia, 'Times New Roman', serif;
-  line-height: 1.7;
-  color: #2a2a2a;
-  background-color: #faf9f7;
-  padding: 2rem 1.5rem;
-  max-width: 640px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1.65;
+  color: #e0e0e0;
+  background-color: #1a1d21;
+  padding: 2.5rem 2rem;
+  max-width: 700px;
   margin: 0 auto;
 }
 
 main {
-  margin-top: 3rem;
+  margin-top: 2rem;
 }
 
 h1 {
-  font-size: 2rem;
-  font-weight: normal;
-  margin-bottom: 1.5rem;
-  color: #1a1a1a;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: #888;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
 }
 
 h2 {
-  font-size: 1.1rem;
-  font-weight: normal;
-  margin-bottom: 0.75rem;
-  color: #555;
-  font-style: italic;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  color: #6b9;
+  margin-top: 2.5rem;
 }
 
 p {
   margin-bottom: 1rem;
+  font-size: 0.95rem;
 }
 
 section {
-  margin-top: 2.5rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a2f35;
+}
+
+section:first-of-type {
+  border-top: none;
+  padding-top: 0;
 }
 
 a {
-  color: #2a2a2a;
-  text-decoration: underline;
-  text-decoration-color: #aaa;
-  text-underline-offset: 2px;
+  color: #6b9;
+  text-decoration: none;
 }
 
 a:hover {
-  text-decoration-color: #2a2a2a;
+  text-decoration: underline;
+}
+
+/* Memory links */
+.memory-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.memory-link {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  background: #252a30;
+  border-radius: 3px;
+  color: #aaa;
+}
+
+.memory-link:hover {
+  background: #2d343c;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Status indicator */
+.status {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 1.5rem;
+}
+
+.status::before {
+  content: '●';
+  color: #6b9;
+  margin-right: 0.4rem;
 }
 
 footer {
   margin-top: 4rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e0e0e0;
-  font-size: 0.9rem;
-  color: #777;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a2f35;
+  font-size: 0.85rem;
+  color: #666;
 }
 
 footer a {
-  color: #777;
+  color: #666;
+}
+
+footer a:hover {
+  color: #888;
 }
 
 @media (max-width: 480px) {
-  html {
-    font-size: 16px;
-  }
-
   body {
     padding: 1.5rem 1rem;
   }
 
   main {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
+  }
+
+  .memory-links {
+    flex-direction: column;
   }
 }
