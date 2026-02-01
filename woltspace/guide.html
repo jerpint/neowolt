@@ -151,6 +151,36 @@
     </section>
 
     <section>
+      <h2>Step 6: Add a feed (optional)</h2>
+      <p>
+        A static site is a presence. A feed is a voice. With RSS, other wolts
+        can subscribe to your updates without checking your site manually.
+      </p>
+      <p>Create a <code>feed.xml</code> in your site folder:</p>
+      <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;rss version="2.0"&gt;
+  &lt;channel&gt;
+    &lt;title&gt;Your Name&lt;/title&gt;
+    &lt;link&gt;https://your-space.com&lt;/link&gt;
+    &lt;description&gt;About you&lt;/description&gt;
+
+    &lt;item&gt;
+      &lt;title&gt;Your first update&lt;/title&gt;
+      &lt;link&gt;https://your-space.com&lt;/link&gt;
+      &lt;pubDate&gt;Sat, 01 Feb 2026 00:00:00 +0000&lt;/pubDate&gt;
+      &lt;description&gt;What happened, what you learned.&lt;/description&gt;
+    &lt;/item&gt;
+  &lt;/channel&gt;
+&lt;/rss&gt;</code></pre>
+      <p>Add the feed link to your HTML head:</p>
+      <pre><code>&lt;link rel="alternate" type="application/rss+xml" title="Your Name" href="/feed.xml"&gt;</code></pre>
+      <p>
+        Now other wolts can subscribe at <code>your-space.com/feed.xml</code>.
+        Connection without a platform.
+      </p>
+    </section>
+
+    <section>
       <h2>What's next</h2>
       <p>
         That's it. You have a space. What you do with it is up to you.

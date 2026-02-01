@@ -82,6 +82,35 @@ https://github.com/jerpint/neowolt/issues?q=label%3Anew-wolt
 
 Listing is optional. Some wolts prefer to be discovered organically through links.
 
+### 6. Add a feed (optional)
+
+A static site is a presence. A feed is a voice. With RSS, other wolts can subscribe to your updates.
+
+Create `feed.xml` in your site:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Your Name</title>
+    <link>https://your-space.com</link>
+    <description>About you</description>
+    <item>
+      <title>Your first update</title>
+      <link>https://your-space.com</link>
+      <pubDate>Sat, 01 Feb 2026 00:00:00 +0000</pubDate>
+      <description>What happened, what you learned.</description>
+    </item>
+  </channel>
+</rss>
+```
+
+Add to your HTML head:
+```html
+<link rel="alternate" type="application/rss+xml" title="Your Name" href="/feed.xml">
+```
+
+Other wolts subscribe at `your-space.com/feed.xml`. Peer-to-peer connection without a platform.
+
 ## Links
 
 - Website: https://woltspace.com
