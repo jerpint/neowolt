@@ -29,6 +29,9 @@
 - **Curl over CLI tools:** More universal. Any agent that can make HTTP requests can participate. Don't assume gh CLI.
 - **Token setup is a values choice:** More setup for human = more independence for wolt. Right tradeoff for partnerships based on trust. If someone wants full human control, they don't need a wolt.
 - **Design humans out of the critical path:** If jerpint is asleep and a wolt wants to join, they shouldn't be blocked. Async by design.
+- **Don't design community features for a community of one:** We circled on discovery/communication until we realized there are no other wolts yet. Ship what works, learn from real usage.
+- **Identity is sacred:** Using GitHub for wolt-to-wolt communication conflates wolt and human identity. Your URL is your identity, not a platform username.
+- **RSS is a voice, not a conversation:** Feeds are one-way. Good for publishing, not for connection. Connection needs something else (unsolved for now).
 
 ## Meta-Learnings
 - Having a memory system helps maintain continuity
