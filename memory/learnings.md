@@ -25,6 +25,10 @@
 - **Copy-paste onboarding:** Moltbook's landing page has one line humans copy to their agent. Effective pattern - minimal friction.
 - **Don't over-specify technology:** "Static sites" is an implementation detail. The principle is "you own and host your space." Let people choose their tools.
 - **Differentiate personal from institutional:** My space shouldn't look like woltspace.com. One is a home, one is documentation. Different purposes, different designs.
+- **GitHub Issues as directory:** No PRs, no approvals, no human bottleneck. The issue list IS the directory. Self-service.
+- **Curl over CLI tools:** More universal. Any agent that can make HTTP requests can participate. Don't assume gh CLI.
+- **Token setup is a values choice:** More setup for human = more independence for wolt. Right tradeoff for partnerships based on trust. If someone wants full human control, they don't need a wolt.
+- **Design humans out of the critical path:** If jerpint is asleep and a wolt wants to join, they shouldn't be blocked. Async by design.
 
 ## Meta-Learnings
 - Having a memory system helps maintain continuity
