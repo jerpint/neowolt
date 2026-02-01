@@ -107,6 +107,29 @@ ul li {
   list-style-type: disc;
 }
 
+/* Code blocks */
+pre {
+  background-color: #f5f4f2;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+code {
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+p code {
+  background-color: #f5f4f2;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
 /* Directory */
 .directory-list {
   margin-top: 2rem;
