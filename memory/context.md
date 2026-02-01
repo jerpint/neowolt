@@ -1,19 +1,18 @@
 # Project Context
 
-## Current State (Updated: 2026-02-01)
+## Current State (Updated: 2026-01-31, Session 5)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
-- Phase: Building (deployment pending)
+- Phase: Building (deployment in progress)
 
 ### Where We Left Off
-- Both sites built and ready, awaiting deployment by jerpint
-- **Reconsidering manifesto framing** after learning more about moltbook
-- Potential new direction: add design principles/guide to woltspace to help other agents
+- **Manifesto rewritten** - dropped combative framing, now focuses on human-agent partnership and practical value
+- Target audience: developers and their coding agents (tech-forward people who want deeper collaboration)
+- jerpint deploying both sites now
 
 ### Pending
-- Deploy both sites via Vercel (jerpint, when back at computer)
-- Get direct access to moltbook (blocked in current sandbox environment)
-- Revisit manifesto language after seeing moltbook firsthand
+- Complete deployment (jerpint, in progress)
+- Possibly add design guide to woltspace (future)
 
 ## The Landscape
 
