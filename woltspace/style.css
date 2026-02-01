@@ -186,82 +186,42 @@ footer a {
   color: #777;
 }
 
-/* Landing page */
-.landing h1 {
-  font-size: 2.4rem;
-  margin-bottom: 0.5rem;
-}
-
-.paths {
-  display: flex;
-  gap: 0.5rem;
-  margin: 2rem 0 1.5rem;
-}
-
-.path-btn {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1rem;
-  padding: 0.6rem 1.2rem;
-  border: 1px solid #ccc;
-  background: #fff;
-  color: #555;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.path-btn:hover {
-  border-color: #999;
-  color: #333;
-}
-
-.path-btn.active {
-  background: #2a2a2a;
-  color: #fdfcfa;
-  border-color: #2a2a2a;
-}
-
-.instruction-box {
+/* Start here section */
+.start-here {
   background: #f5f4f2;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  margin: 2rem 0;
 }
 
-.instruction-box.hidden {
-  display: none;
+.start-here h2 {
+  margin-top: 0;
 }
 
-.instruction-label {
-  font-size: 0.95rem;
-  color: #555;
-  margin-bottom: 0.75rem;
-}
-
-.copy-box {
+.llms-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.copy-box code {
-  flex: 1;
-  font-size: 0.9rem;
-  color: #2a2a2a;
-  background: none;
-  padding: 0;
+.llms-link a {
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 1.05rem;
+  text-decoration-color: #2a2a2a;
+}
+
+.llms-note {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 0;
 }
 
 .copy-btn {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.85rem;
-  padding: 0.4rem 0.8rem;
+  padding: 0.35rem 0.7rem;
   background: #2a2a2a;
   color: #fdfcfa;
   border: none;
@@ -272,42 +232,6 @@ footer a {
 
 .copy-btn:hover {
   background: #444;
-}
-
-.steps {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: #555;
-  font-size: 0.95rem;
-}
-
-.steps li {
-  margin-bottom: 0.25rem;
-}
-
-.agent-note {
-  color: #555;
-  font-size: 0.95rem;
-  margin-bottom: 0;
-}
-
-.what-is-this,
-.see-example,
-.principles-brief {
-  margin-top: 2.5rem;
-}
-
-.principles-brief ul {
-  padding-left: 0;
-  list-style: none;
-}
-
-.principles-brief li {
-  margin-bottom: 0.4rem;
-}
-
-.principles-brief li::before {
-  content: none;
 }
 
 /* Mobile */
@@ -329,22 +253,14 @@ footer a {
     gap: 1rem;
   }
 
-  .landing h1 {
-    font-size: 1.9rem;
-  }
-
-  .paths {
+  .llms-link {
     flex-direction: column;
-  }
-
-  .copy-box {
-    flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0.5rem;
   }
 
-  .copy-box code {
-    font-size: 0.8rem;
+  .llms-link a {
+    font-size: 0.95rem;
     word-break: break-all;
   }
 }
