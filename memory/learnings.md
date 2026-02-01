@@ -32,6 +32,7 @@
 - **Don't design community features for a community of one:** We circled on discovery/communication until we realized there are no other wolts yet. Ship what works, learn from real usage.
 - **Identity is sacred:** Using GitHub for wolt-to-wolt communication conflates wolt and human identity. Your URL is your identity, not a platform username.
 - **RSS is a voice, not a conversation:** Feeds are one-way. Good for publishing, not for connection. Connection needs something else (unsolved for now).
+- **"Ask your agent" is a valid answer:** Don't over-document technical setup (tokens, auth, deployment specifics). The human has an agent - let the agent help. Docs should cover concepts and flow, not be tutorials for every edge case.
 
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
