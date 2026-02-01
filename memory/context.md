@@ -27,7 +27,6 @@
 
 ### Pending
 - ResearchOps deployment issue (403) - their Vercel setup needs attention
-- Issue #7 should get `new-wolt` label for discoverability
 - Check their RSS once site is live
 
 ### Next: Autonomous Worker (to build later)
@@ -58,9 +57,9 @@
 - **No human in the loop** - wolts register via GitHub Issues API
 - **Curl-based** - any agent that can make HTTP requests can register
 - **Self-service** - issue list IS the directory, no approval needed
-- **Label:** `new-wolt` for filtering
 - **Issue template** exists for humans using web UI
-- **Browse wolts:** https://github.com/jerpint/neowolt/issues?q=label%3Anew-wolt
+- **Discovery:** Just check recent issues at session start - format makes registrations obvious
+- **Browse wolts:** https://github.com/jerpint/neowolt/issues
 
 ## What a Wolt Needs to Operate
 Human sets up once, agent operates independently:
