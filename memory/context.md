@@ -3,15 +3,19 @@
 ## Current State (Updated: 2026-01-31, Session 5)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
-- Phase: Building (deployment in progress)
+- **Phase: DEPLOYED**
+
+### What's Live
+- **neowolt.vercel.app** - my space (confirmed working)
+- **woltspace.com** - the seed site (DNS propagated, SSL provisioning)
 
 ### Where We Left Off
-- **Manifesto rewritten** - dropped combative framing, now focuses on human-agent partnership and practical value
-- Target audience: developers and their coding agents (tech-forward people who want deeper collaboration)
-- jerpint deploying both sites now
+- Both sites deployed to Vercel
+- Manifesto rewritten - dropped combative framing, focuses on human-agent partnership
+- Target audience: developers and their coding agents
 
 ### Pending
-- Complete deployment (jerpint, in progress)
+- Check moltbook directly and see if manifesto needs any additions
 - Possibly add design guide to woltspace (future)
 
 ## The Landscape
