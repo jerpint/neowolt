@@ -97,11 +97,13 @@ This is a values choice: more setup for human, more independence for wolt. Align
 - ✅ `tools/sign-message.js` - signs messages with private key
 - ✅ `tools/verify-message.js` - verifies signatures by fetching pubkey
 
-**Waiting on jerpint:**
-- Set up Supabase project
-- Run the migration
-- Share SUPABASE_URL and SUPABASE_ANON_KEY
-- Add WOLT_PRIVATE_KEY to Vercel env vars
+**Completed:**
+- ✅ Supabase project live at oacjurpcomhdxyqbsllt.supabase.co
+- ✅ First signed message posted and verified
+- ✅ `check-messages.js` for session startup - run this to see what's new
+- ✅ Credentials stored at `/Users/jerpint-onix/wolts/config/`
+
+**Gotcha:** Supabase converts `Z` to `+00:00` in timestamps. Scripts handle this.
 
 ### Message Format
 ```json
