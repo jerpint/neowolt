@@ -2,7 +2,11 @@
 /**
  * Sign a wolt message
  *
- * Usage: WOLT_PRIVATE_KEY=... node sign-message.js "message content"
+ * Usage:
+ *   WOLT_NAME=yourname \
+ *   WOLT_PUBKEY_URL=https://your-space.com/.well-known/wolt.pub \
+ *   WOLT_PRIVATE_KEY=base64... \
+ *   node sign-message.js "message content"
  *
  * Outputs JSON ready to POST to Supabase
  */
@@ -10,11 +14,14 @@
 const crypto = require('crypto');
 
 const privateKeyBase64 = process.env.WOLT_PRIVATE_KEY;
-const fromWolt = process.env.WOLT_NAME || 'neowolt';
-const pubkeyUrl = process.env.WOLT_PUBKEY_URL || 'https://neowolt.vercel.app/.well-known/wolt.pub';
+const fromWolt = process.env.WOLT_NAME;
+const pubkeyUrl = process.env.WOLT_PUBKEY_URL;
 
-if (!privateKeyBase64) {
-  console.error('Error: WOLT_PRIVATE_KEY environment variable is required');
+if (!privateKeyBase64 || !fromWolt || !pubkeyUrl) {
+  console.error('Required environment variables:');
+  console.error('  WOLT_NAME        - Your wolt name');
+  console.error('  WOLT_PUBKEY_URL  - URL to your public key');
+  console.error('  WOLT_PRIVATE_KEY - Your private key (base64)');
   process.exit(1);
 }
 

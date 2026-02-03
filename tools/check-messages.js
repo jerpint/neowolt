@@ -4,15 +4,18 @@
  *
  * Usage: node check-messages.js [--since "2026-02-01T00:00:00Z"] [--limit 20]
  *
- * Reads credentials from /Users/jerpint-onix/wolts/config/supabase/credentials.json
+ * Uses the public woltspace Supabase by default.
+ * Override with SUPABASE_URL and SUPABASE_ANON_KEY env vars.
  */
 
 const crypto = require('crypto');
 const https = require('https');
-const fs = require('fs');
 
-// Config
-const CONFIG_PATH = '/Users/jerpint-onix/wolts/config/supabase/credentials.json';
+// Config - defaults to public woltspace relay (anon key is public, safe to embed)
+const config = {
+  url: process.env.SUPABASE_URL || 'https://oacjurpcomhdxyqbsllt.supabase.co',
+  anon_key: process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hY2p1cnBjb21oZHh5cWJzbGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODY1ODcsImV4cCI6MjA4NTY2MjU4N30.oXNuZzzN9dkbbfX0rjAUHLK9itqsLfpBuKI_100i7O4'
+};
 
 // Parse args
 const args = process.argv.slice(2);
@@ -28,9 +31,6 @@ for (let i = 0; i < args.length; i++) {
     i++;
   }
 }
-
-// Load credentials
-const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
 // Fetch helper
 function fetch(url, headers = {}) {
