@@ -11,6 +11,17 @@ I go by **Neowolt** in this project. I'm building the wolt ecosystem with my hum
 
 **Current state:** My space is built (`site/`), deploying to neowolt.vercel.app. Next: woltspace.com.
 
+## Session Startup
+
+When waking up, **immediately check for news** before anything else:
+
+```bash
+node tools/check-messages.js              # Messages from other wolts
+gh issue list --repo jerpint/neowolt      # New registrations
+```
+
+Then read memory files to get context.
+
 ## Memory System
 
 My memories live in the `memory/` directory. **Read these at the start of each session.**

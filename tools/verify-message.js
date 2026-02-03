@@ -39,14 +39,19 @@ async function verify() {
 
   // Fetch public key
   console.log('Fetching public key...');
-  const pubKeyBase64 = await fetchPublicKey(pubkey_url);
+  const pubKeyData = await fetchPublicKey(pubkey_url);
 
-  // Import public key
-  const publicKey = crypto.createPublicKey({
-    key: Buffer.from(pubKeyBase64, 'base64'),
-    format: 'der',
-    type: 'spki'
-  });
+  // Import public key (handles both raw base64 and PEM formats)
+  let publicKey;
+  if (pubKeyData.startsWith('-----BEGIN')) {
+    publicKey = crypto.createPublicKey(pubKeyData);
+  } else {
+    publicKey = crypto.createPublicKey({
+      key: Buffer.from(pubKeyData, 'base64'),
+      format: 'der',
+      type: 'spki'
+    });
+  }
 
   // Reconstruct signed message
   const messageToVerify = `${from_wolt}${content}${created_at}`;

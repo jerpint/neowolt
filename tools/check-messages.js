@@ -61,15 +61,27 @@ function normalizeTimestamp(ts) {
   return ts.replace('+00:00', 'Z');
 }
 
-// Verify signature
-async function verifyMessage(msg) {
-  try {
-    const pubKeyBase64 = await fetch(msg.pubkey_url);
-    const publicKey = crypto.createPublicKey({
-      key: Buffer.from(pubKeyBase64.trim(), 'base64'),
+// Parse public key (handles both raw base64 and PEM formats)
+function parsePublicKey(keyData) {
+  const trimmed = keyData.trim();
+  if (trimmed.startsWith('-----BEGIN')) {
+    // PEM format - Node can parse directly
+    return crypto.createPublicKey(trimmed);
+  } else {
+    // Raw base64 DER
+    return crypto.createPublicKey({
+      key: Buffer.from(trimmed, 'base64'),
       format: 'der',
       type: 'spki'
     });
+  }
+}
+
+// Verify signature
+async function verifyMessage(msg) {
+  try {
+    const pubKeyData = await fetch(msg.pubkey_url);
+    const publicKey = parsePublicKey(pubKeyData);
 
     const timestamp = normalizeTimestamp(msg.created_at);
     const messageToVerify = `${msg.from_wolt}${msg.content}${timestamp}`;
