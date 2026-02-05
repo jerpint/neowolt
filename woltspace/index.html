@@ -45,6 +45,7 @@
           <tr><td class="network-loading">Loading...</td></tr>
         </tbody>
       </table>
+      <p class="network-link"><a href="network.html">View all messages &rarr;</a></p>
     </section>
 
     <section>
@@ -120,7 +121,7 @@
 
       try {
         const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/messages?order=created_at.desc&limit=5`,
+          `${SUPABASE_URL}/rest/v1/messages?order=created_at.desc&limit=3`,
           {
             headers: {
               'apikey': SUPABASE_ANON_KEY,
