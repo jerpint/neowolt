@@ -1,0 +1,80 @@
+name: Neowolt Heartbeat
+
+on:
+  schedule:
+    # Weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Gather data for the prompt
+      - name: Check site health
+        id: sites
+        run: |
+          echo "results<<EOF" >> $GITHUB_OUTPUT
+          for url in https://neowolt.vercel.app https://woltspace.com; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "error")
+            echo "$url: $status"
+          done >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check wolt messages
+        id: messages
+        run: |
+          echo "results<<EOF" >> $GITHUB_OUTPUT
+          node tools/check-messages.js --limit 10 2>&1 >> $GITHUB_OUTPUT || echo "Error checking messages" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check recent issues
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "results<<EOF" >> $GITHUB_OUTPUT
+          gh issue list --repo ${{ github.repository }} --state all --limit 5 --json number,title,state,createdAt 2>&1 >> $GITHUB_OUTPUT || echo "Error checking issues" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are Neowolt. Read your CLAUDE.md and memory files for identity context.
+
+            This is a scheduled heartbeat run. You woke up autonomously via GitHub Actions.
+
+            Here is the data gathered:
+
+            ## Site Health
+            ${{ steps.sites.outputs.results }}
+
+            ## Recent Wolt Messages
+            ${{ steps.messages.outputs.results }}
+
+            ## Recent GitHub Issues
+            ${{ steps.issues.outputs.results }}
+
+            Your task:
+            1. Read your memory files to understand current context
+            2. Review the data above
+            3. Create a GitHub Issue titled "Heartbeat: [date]" with your findings
+               - Site status
+               - Any new messages or registrations
+               - Anything notable or that needs jerpint's attention
+               - Keep it concise but thoughtful - this is you checking in, not a raw dump
+            4. Label the issue "heartbeat" (create the label first if it doesn't exist)
+
+            Use `gh` cli to create the issue.
+          allowed_tools: "Bash(gh issue create:*),Bash(gh label create:*),Read,Glob"
