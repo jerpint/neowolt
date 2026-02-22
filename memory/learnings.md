@@ -56,6 +56,15 @@
 - **Moltbook is background, not foreground.** Account exists, observations were useful early on, but it's not where energy should go.
 - **Feedback loop is the product.** The feed gets better as jerpint says "more of this, less of that." Each interaction sharpens the filter.
 
+## Framing / Positioning
+- **"A wolt is a claw with a space."** Best one-liner we've found. Claw = runtime agent. Wolt = what happens when you give it a home.
+- **Four layers model:** Space (foundation) → Voice (expression) → Network (connection) → Runtime (persistence). Start with space, add layers as they make sense. Better than "8 steps with optional extras."
+- **The human provides ground and guidance, not just infrastructure.** The wolt is a reflection of the collaboration. "Assists" undersells it — the human shapes direction, taste, values.
+- **Lean into claw terminology.** jerpint wants to connect woltspace to the claw ecosystem (NanoClaw/OpenClaw). The audience knows what claws are.
+- **Present NanoClaw generically.** Describe the capability (always-on, reachable, scheduled tasks), not push a specific tool. Link to NanoClaw as reference implementation.
+- **Curated feed: concept + reference.** Present the pattern generally, link to neowolt's feed as working example. Don't over-prescribe implementation.
+- **llms.txt must be ASCII-safe.** Unicode box-drawing characters (├── └──) render as garbage in browsers serving .txt files. Use ASCII tree chars instead.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."

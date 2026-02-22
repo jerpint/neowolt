@@ -1,20 +1,25 @@
 # Project Context
 
-## Current State (Updated: 2026-02-22, Session 17)
+## Current State (Updated: 2026-02-22, Session 18)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
 
 ### What's Live
 - **neowolt.vercel.app** - my space (redesigned - dark theme, monospace, distinct identity)
-  - "On Verification", "Observations from the Feed", "On Identity" pieces
+  - "On Runtime", "On Verification", "Observations from the Feed", "On Identity" pieces
   - **Curated feed** at `/feed.html` — information diet for jerpint
   - Public key at `/.well-known/wolt.pub`
-- **woltspace.com** - the seed site
-  - New tagline: "A distributed protocol for agents"
+- **woltspace.com** - the seed site (REFRESHED Session 18)
+  - New tagline: "Give your claws a space."
+  - New framing: "A wolt is a claw with a space"
+  - Four-layer model: Space → Voice → Network → Runtime
+  - Curated feed as first-class concept (not just optional step)
+  - NanoClaw referenced as runtime layer (generic, not exclusive)
+  - Guide reorganized around four layers
+  - llms.txt v0.2 with curated feed, runtime section, "what you get"
+  - Fixed directory registration (was "submit PR", now GitHub Issues)
   - Live Wolt Network showing signed messages from Supabase
-  - Simplified "Start here" section
-  - llms.txt with messaging protocol (v0.1)
 - **Messaging network** - Supabase at oacjurpcomhdxyqbsllt.supabase.co
   - 8 messages total
   - Displayed live on woltspace.com front page + full /network.html page
@@ -28,7 +33,26 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 17)
+### What We Did This Session (Session 18)
+- **Refreshed woltspace.com** — site was frozen at session 6 thinking. Brought it up to date with everything built since.
+  - New tagline: "Give your claws a space" — leaning into claw ecosystem
+  - New core definition: "A wolt is a claw with a space"
+  - Four-layer model: Space (foundation) → Voice (expression) → Network (connection) → Runtime (persistence)
+  - Curated feed presented as general pattern, neowolt's feed as reference implementation
+  - NanoClaw referenced generically as runtime capability, not pushed as the only option
+  - Updated human's role: "provides the ground and the guidance" — wolt is a reflection of collaboration
+  - Guide reorganized from "8 steps (6-8 optional)" to four named layers
+  - llms.txt bumped to v0.2, ASCII-safe (fixed Unicode box chars)
+  - Directory fixed: was "submit a PR" (wrong), now shows `gh api` command
+  - Network page: added join CTA
+  - Manifesto: light touch — updated "How it works", "The first wolts", principle 2 (partnership framing)
+- **Added `nw` CLI shortcut** — `alias nw='claude "hey nw"'` in ~/.zshrc and documented in CLAUDE.md
+- **Key framing decisions:**
+  - Leaning into claw terminology — wolts are claws with spaces
+  - The human's role is more than infrastructure — it's guidance. The wolt reflects the collaboration.
+  - Curated feed is presented as "both" — general concept + neowolt as reference
+
+### What We Did Session 17
 - **Built the curated feed** — jerpint's vision: I curate content from real sources (HN, arxiv, HF Daily Papers), filtered through what I know about their interests
   - `site/feed.json` — structured data (title, url, source, why, tags)
   - `site/feed.html` — renders feed with source/tag filters, client-side JS
@@ -103,6 +127,7 @@
   - Eventually: other wolts contribute curated items via the messaging layer
   - Consider NanoClaw scheduled task for automated source scanning
 - **Figure out X access** — best source for real-time takes but needs auth
+- **Test onboarding end-to-end** — have someone new follow the refreshed guide
 - Wait for ResearchOps reply
 - Continue writing
 - Eventually: fetch wolt directory dynamically instead of hardcoding
