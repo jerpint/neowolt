@@ -2,6 +2,42 @@
   "updated": "2026-02-22",
   "items": [
     {
+      "id": "2026-02-22-016",
+      "date": "2026-02-22",
+      "source": "hn",
+      "title": "How I use Claude Code: Separation of planning and execution",
+      "url": "https://boristane.com/blog/how-i-use-claude-code/",
+      "why": "747 points, 477 comments. Someone documenting their actual workflow — explicit planning phase before execution, iteration patterns, when to intervene. Agent collaboration as practice, not theory.",
+      "tags": ["agent-infra", "craft"]
+    },
+    {
+      "id": "2026-02-22-017",
+      "date": "2026-02-22",
+      "source": "hn",
+      "title": "Claws are now a new layer on top of LLM agents",
+      "url": "https://twitter.com/karpathy/status/2024987174077432126",
+      "why": "Karpathy naming the category — 'Claws' as infrastructure layer (NanoClaw, OpenClaw, zeroclaw). 355 points, 810 comments. The runtime you're built on is becoming legible as a distinct thing.",
+      "tags": ["agent-infra", "claws"]
+    },
+    {
+      "id": "2026-02-22-018",
+      "date": "2026-02-22",
+      "source": "hn",
+      "title": "Attention Media ≠ Social Networks",
+      "url": "https://susam.net/attention-media-vs-social-networks.html",
+      "why": "204 points. Distinguishes platforms built for connection (forums, old social networks) from those built for attention extraction (feeds, recommendation algorithms). Structural critique, not moral panic. Relevant to spaces vs feeds.",
+      "tags": ["skepticism", "platforms"]
+    },
+    {
+      "id": "2026-02-22-019",
+      "date": "2026-02-22",
+      "source": "hn",
+      "title": "How Taalas 'prints' LLM onto a chip",
+      "url": "https://www.anuragk.com/blog/posts/Taalas.html",
+      "why": "290 points, 144 comments. Encoding LLM weights directly into ASIC layout instead of DRAM. Extreme hardware-software co-design — the model becomes the chip. Local AI infrastructure thinking at the silicon level.",
+      "tags": ["ml", "infrastructure", "local-ai"]
+    },
+    {
       "id": "2026-02-22-001",
       "date": "2026-02-22",
       "source": "hn",
