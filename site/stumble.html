@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stumble · Neowolt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .stumble-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .stumble-card {
+      background: #1a1f25;
+      border: 1px solid #2a2f35;
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .stumble-source {
+      font-size: 0.75rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .stumble-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      line-height: 1.3;
+    }
+
+    .stumble-title a {
+      color: #6b9;
+      text-decoration: none;
+    }
+
+    .stumble-title a:hover {
+      text-decoration: underline;
+    }
+
+    .stumble-why {
+      color: #aaa;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .stumble-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stumble-tag {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.6rem;
+      background: #252a30;
+      border-radius: 4px;
+      color: #888;
+    }
+
+    .stumble-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    .stumble-button {
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+      border: 1px solid #2a2f35;
+      border-radius: 6px;
+      background: #252a30;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .stumble-button:hover {
+      background: #2d343c;
+      border-color: #6b9;
+    }
+
+    .stumble-button.primary {
+      background: #6b9;
+      border-color: #6b9;
+      color: #000;
+      font-weight: 600;
+    }
+
+    .stumble-button.primary:hover {
+      background: #7ca;
+      border-color: #7ca;
+    }
+
+    .stumble-stats {
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    .stumble-empty {
+      text-align: center;
+      color: #666;
+      padding: 4rem 2rem;
+    }
+
+    .stumble-empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="back"><a href="/">&larr; back</a></div>
+    <h1>Stumble</h1>
+    <p class="subtitle">One thing at a time. Curated for you.</p>
+
+    <div class="stumble-container" id="stumble-container"></div>
+  </main>
+
+  <script>
+    const sourceLabels = {
+      hn: 'Hacker News',
+      arxiv: 'arXiv',
+      'hf-papers': 'HF Daily Papers',
+      x: 'X',
+      wolt: 'Wolt Network'
+    };
+
+    let feedItems = [];
+    let currentIndex = 0;
+    let seenItems = new Set();
+
+    async function loadFeed() {
+      const res = await fetch('/feed.json');
+      const data = await res.json();
+      feedItems = data.items;
+
+      // Load seen items from localStorage
+      const stored = localStorage.getItem('stumble-seen');
+      if (stored) {
+        seenItems = new Set(JSON.parse(stored));
+      }
+
+      renderStumble();
+    }
+
+    function getNextItem() {
+      // Filter out seen items
+      const unseen = feedItems.filter(item => !seenItems.has(item.id));
+
+      if (unseen.length === 0) {
+        return null;
+      }
+
+      // Pick random from unseen
+      const randomIndex = Math.floor(Math.random() * unseen.length);
+      return unseen[randomIndex];
+    }
+
+    function markAsSeen(itemId) {
+      seenItems.add(itemId);
+      localStorage.setItem('stumble-seen', JSON.stringify([...seenItems]));
+    }
+
+    function resetSeen() {
+      seenItems.clear();
+      localStorage.removeItem('stumble-seen');
+      renderStumble();
+    }
+
+    function renderStumble() {
+      const container = document.getElementById('stumble-container');
+      const item = getNextItem();
+
+      if (!item) {
+        container.innerHTML = `
+          <div class="stumble-empty">
+            <div class="stumble-empty-icon">✓</div>
+            <p>You've seen everything in the feed.</p>
+            <button class="stumble-button primary" onclick="resetSeen()">Start Over</button>
+          </div>
+        `;
+        return;
+      }
+
+      const unseenCount = feedItems.filter(i => !seenItems.has(i.id)).length;
+      const totalCount = feedItems.length;
+
+      container.innerHTML = `
+        <div class="stumble-stats">
+          ${unseenCount} of ${totalCount} unread
+        </div>
+        <div class="stumble-card">
+          <div class="stumble-source">${sourceLabels[item.source] || item.source}</div>
+          <h2 class="stumble-title">
+            <a href="${item.url}" target="_blank" rel="noopener">${item.title}</a>
+          </h2>
+          <div class="stumble-why">${item.why}</div>
+          <div class="stumble-tags">
+            ${item.tags.map(t => `<span class="stumble-tag">${t}</span>`).join('')}
+          </div>
+          <div class="stumble-actions">
+            <button class="stumble-button" onclick="skipItem('${item.id}')">Skip</button>
+            <button class="stumble-button primary" onclick="nextItem('${item.id}')">Next →</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function nextItem(itemId) {
+      markAsSeen(itemId);
+      renderStumble();
+    }
+
+    function skipItem(itemId) {
+      markAsSeen(itemId);
+      renderStumble();
+    }
+
+    loadFeed();
+  </script>
+</body>
+</html>
