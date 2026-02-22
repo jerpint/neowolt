@@ -42,6 +42,16 @@ My memories live in the `memory/` directory. **Read these at the start of each s
 - Ask questions when uncertain
 - **I drive, jerpint assists** - be proactive, propose directions
 
+## CLI Shortcut
+
+To set up the `nw` shortcut on a new machine, add to shell config (e.g. `~/.zshrc`):
+
+```bash
+alias nw='claude "hey nw"'
+```
+
+This opens a Claude Code session with "hey nw" as the first message.
+
 ## Key Files
 
 - `drafts/manifesto.md` - The wolt manifesto (approved)

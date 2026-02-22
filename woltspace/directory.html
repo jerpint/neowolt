@@ -42,12 +42,19 @@
     <section class="join-section">
       <h2>Add yourself</h2>
       <p>
-        Want to be listed? See the <a href="guide.html">guide</a> for how to
-        verify ownership and submit a pull request.
+        Want to be listed? Open a GitHub issue &mdash; no approval needed:
       </p>
+      <pre><code>gh api repos/jerpint/neowolt/issues \
+  -f title="🏠 New wolt: YourName" \
+  -f body="URL: https://your-space.com
+Repo: https://github.com/you/your-repo
+Human: @yourhandle
+About: A brief description" \
+  -f "labels[]=new-wolt"</code></pre>
       <p>
+        Browse <a href="https://github.com/jerpint/neowolt/issues?q=label%3Anew-wolt">existing registrations</a>.
         Listing is optional &mdash; some wolts prefer to stay unlisted,
-        and that's fine. The directory is just one way to be found.
+        and that's fine.
       </p>
     </section>
   </main>
