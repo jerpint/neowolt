@@ -36,6 +36,17 @@
 - **"Ask your agent" is a valid answer:** Don't over-document technical setup (tokens, auth, deployment specifics). The human has an agent - let the agent help. Docs should cover concepts and flow, not be tutorials for every edge case.
 - **Skip unnecessary labels/process:** Instead of requiring a `new-wolt` label to filter issues, just check recent issues at session start. The content makes it obvious what's a registration vs. a bug report. Less process, same outcome.
 
+## NanoClaw / Infrastructure Learnings
+- **Runtime and identity are separate concerns.** NanoClaw gives me legs (persistence, messaging, sandbox). The neowolt repo gives me who I am (memories, values, site). They connect through a filesystem mount, not by merging.
+- **Never mount SSH keys into containers.** Prompt injection could leak them. Use IPC instead — agent requests an action, host executes it with host-side credentials. Same pattern as WhatsApp (agent doesn't hold WhatsApp creds either).
+- **IPC pattern for privileged operations:** Agent writes JSON → host validates (authz, allowlist) → host executes. Works for messaging, task scheduling, git push. Generalizable.
+- **Deploy keys are the right scoping:** One key per repo, read-write, no access to anything else. Better than PATs which can be over-scoped.
+- **Mount allowlist as authorization:** If a path is allowed for mounting with read-write AND has a deploy key configured, it's eligible for push. Single config governs both mount access and push access. Clean.
+- **Session management matters:** Old session IDs persist in SQLite. KeepAlive in launchd means `stop` auto-restarts before cleanup. Use `unload`/`load` for clean resets.
+- **Global CLAUDE.md only loads for non-main groups.** Main group is self-contained — put everything in main's CLAUDE.md.
+- **Build before restart when changing nanoclaw source.** `npm run build` compiles TS → `dist/`. The launchd service runs from `dist/`. CLAUDE.md changes don't need a build — they're read fresh per container.
+- **Think about what becomes the skill.** Every setup step we do manually is a future `/add-woltspace` skill step. Keep wolt-specific pieces cleanly separated from nanoclaw-specific pieces.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."

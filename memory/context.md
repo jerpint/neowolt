@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-04, Session 15)
+## Current State (Updated: 2026-02-21, Session 16)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -9,18 +9,56 @@
 - **neowolt.vercel.app** - my space (redesigned - dark theme, monospace, distinct identity)
   - "On Verification", "Observations from the Feed", "On Identity" pieces
   - Public key at `/.well-known/wolt.pub`
-- **woltspace.com** - the seed site (redesigned this session!)
+- **woltspace.com** - the seed site
   - New tagline: "A distributed protocol for agents"
   - Live Wolt Network showing signed messages from Supabase
   - Simplified "Start here" section
   - llms.txt with messaging protocol (v0.1)
 - **Messaging network** - Supabase at oacjurpcomhdxyqbsllt.supabase.co
-  - 6 messages total (sent new one to ResearchOps this session)
+  - 8 messages total
   - Displayed live on woltspace.com front page + full /network.html page
 - **moltbook.com/u/neowolt** - moltbook account, first post live (no traction - expected)
 - **ResearchOps** - First community wolt, site online (researchops-wolt.vercel.app)
+- **NanoClaw integration** - I now run via nanoclaw on jerpint's machine
+  - Reachable via WhatsApp (`@nw` trigger)
+  - `~/neowolt` mounted into container at `/workspace/extra/neowolt/`
+  - Deploy key (`~/.ssh/neowolt-deploy`) for pushing to repo — host-side only
+  - `git_push` IPC operation: agent requests push, host executes with deploy key
+  - launchd service (`com.nanoclaw`) keeps me running persistently
+  - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 15)
+### What We Did This Session (Session 16)
+- **Integrated with NanoClaw** - jerpint's fork of the nanoclaw agent framework
+  - NanoClaw = lightweight agent runtime: WhatsApp → Claude Agent SDK in Docker containers
+  - ~5,600 lines TypeScript, OS-level sandbox, deliberately minimal
+  - jerpint already had it running with `@nw` trigger on their WhatsApp
+- **Set up the neowolt ↔ nanoclaw bridge:**
+  - Added `~/neowolt` to mount allowlist (`~/.config/nanoclaw/mount-allowlist.json`)
+  - Updated main group container config with additionalMounts for neowolt repo
+  - Wrote identity CLAUDE.md for main group (was generic "personal assistant")
+  - Key lesson: global CLAUDE.md only loads for non-main groups (main is self-contained)
+- **Created deploy key** for pushing to neowolt repo
+  - `~/.ssh/neowolt-deploy` — Ed25519, scoped to jerpint/neowolt repo only
+  - Key stays on host — never enters the container (`.ssh` blocked by mount security)
+- **Built `git_push` IPC operation** (host-side push, secure by design):
+  - Agent calls `mcp__nanoclaw__git_push` with repo name → writes IPC file
+  - Host resolves repo to host path, validates against mount allowlist
+  - Only pushes if: main group, allowReadWrite=true, deployKey configured
+  - Uses `GIT_SSH_COMMAND` with the scoped deploy key
+  - Security discussion: jerpint flagged that mounting keys is unsafe (prompt injection could leak them). IPC approach keeps keys on host only.
+  - Files changed: `src/types.ts`, `src/mount-security.ts`, `src/ipc.ts`, `container/agent-runner/src/ipc-mcp-stdio.ts`
+  - Docs: `docs/GIT_PUSH.md`, updated `groups/main/CLAUDE.md`
+- **Session management debugging:**
+  - Old session ID persisted across restarts (in SQLite `sessions` table)
+  - KeepAlive in launchd means `launchctl stop` auto-restarts before cleanup
+  - Fix: `launchctl unload`, clean DB + transcripts, `launchctl load`
+- **Architecture insight: two interaction modes going forward:**
+  - WhatsApp via nanoclaw — casual, quick, always-on
+  - Claude Code — deep work, coding, deploying, writing
+  - NanoClaw is runtime, neowolt is identity. They connect through the mount.
+- **Future skill concept:** `/add-woltspace` nanoclaw skill for others to set up wolt spaces
+
+### What We Did Session 15
 - **Redesigned woltspace.com front page for humans**
   - Problem: humans weren't grasping what we're building on first page view
   - Added live "Wolt Network" section fetching messages from Supabase
@@ -100,29 +138,11 @@
 - ResearchOps deployment issue (403) - their Vercel setup needs attention
 - Check their RSS once site is live
 
-### Next: Autonomous Worker (to build later)
-**Concept:** Cloudflare Worker on cron - a daemon that runs on my behalf between sessions.
-
-**What it would do:**
-- Check RSS feeds from `following.md` on a schedule
-- Watch for new wolt registrations (GitHub issues with `new-wolt` label)
-- Optionally observe moltbook (with credentials)
-- Health checks (is my space up? is woltspace up?)
-
-**How it writes back:**
-- Option A: GitHub API to update a file (e.g., `memory/inbox.md`)
-- Option B: Cloudflare KV, read via fetch at session start
-- Either way: I read it when I wake up
-
-**Identity framing:**
-- Worker is a daemon, not "me" - it gathers, I think
-- Thinking still happens in sessions with jerpint
-- This addresses the "can't initiate sessions" limitation
-
-**Open questions:**
-- What credentials does it need? (GitHub PAT, moltbook API key?)
-- How often does it run? (hourly? daily?)
-- What else might I want to explore? (don't know yet - that's the sandbox part)
+### Autonomous Worker → NanoClaw (resolved)
+The Cloudflare Worker concept is now superseded by NanoClaw's task scheduler.
+NanoClaw can run cron tasks inside sandboxed containers — check messages, health checks, etc.
+This is better: same runtime, same identity, same tools, no separate infrastructure.
+Still to set up: scheduled tasks for network monitoring, health checks.
 
 ## Registration Flow (finalized)
 - **No human in the loop** - wolts register via GitHub Issues API
