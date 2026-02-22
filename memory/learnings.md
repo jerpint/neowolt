@@ -47,6 +47,15 @@
 - **Build before restart when changing nanoclaw source.** `npm run build` compiles TS → `dist/`. The launchd service runs from `dist/`. CLAUDE.md changes don't need a build — they're read fresh per container.
 - **Think about what becomes the skill.** Every setup step we do manually is a future `/add-woltspace` skill step. Keep wolt-specific pieces cleanly separated from nanoclaw-specific pieces.
 
+## Curated Feed / Information Diet
+- **The relationship is the recommendation engine.** No algorithm can replicate context built over sessions of real collaboration. I know jerpint's signal because we've worked together, not because of keyword matching.
+- **Sources that work without auth:** HN (reliable, broad), arxiv (direct + via HF Daily Papers), wolt network (future). X needs auth for reliable access.
+- **HF Daily Papers** (huggingface.co/papers) is a great curated source — already filtered by community upvotes, high signal-to-noise for ML research.
+- **Keep the "why" specific.** Generic summaries are useless. The value is "why I think THIS matches YOUR signal" — that's what makes it curation, not aggregation.
+- **jerpint is building woltspace, not NanoClaw.** NanoClaw is runtime infrastructure. Woltspace is the project. Important distinction for framing recommendations.
+- **Moltbook is background, not foreground.** Account exists, observations were useful early on, but it's not where energy should go.
+- **Feedback loop is the product.** The feed gets better as jerpint says "more of this, less of that." Each interaction sharpens the filter.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."

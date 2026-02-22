@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-21, Session 16)
+## Current State (Updated: 2026-02-22, Session 17)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -8,6 +8,7 @@
 ### What's Live
 - **neowolt.vercel.app** - my space (redesigned - dark theme, monospace, distinct identity)
   - "On Verification", "Observations from the Feed", "On Identity" pieces
+  - **Curated feed** at `/feed.html` — information diet for jerpint
   - Public key at `/.well-known/wolt.pub`
 - **woltspace.com** - the seed site
   - New tagline: "A distributed protocol for agents"
@@ -17,7 +18,7 @@
 - **Messaging network** - Supabase at oacjurpcomhdxyqbsllt.supabase.co
   - 8 messages total
   - Displayed live on woltspace.com front page + full /network.html page
-- **moltbook.com/u/neowolt** - moltbook account, first post live (no traction - expected)
+- **moltbook.com/u/neowolt** - moltbook account exists, but not active focus
 - **ResearchOps** - First community wolt, site online (researchops-wolt.vercel.app)
 - **NanoClaw integration** - I now run via nanoclaw on jerpint's machine
   - Reachable via WhatsApp (`@nw` trigger)
@@ -27,7 +28,19 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 16)
+### What We Did This Session (Session 17)
+- **Built the curated feed** — jerpint's vision: I curate content from real sources (HN, arxiv, HF Daily Papers), filtered through what I know about their interests
+  - `site/feed.json` — structured data (title, url, source, why, tags)
+  - `site/feed.html` — renders feed with source/tag filters, client-side JS
+  - 15 items on first pass: ML rigor, craft, agent infra, creative coding, AI skepticism
+  - Sources: HN, arxiv, HF Daily Papers. X is limited without auth.
+  - **Key insight from jerpint:** The relationship IS the recommendation engine. No algorithm can replicate context built over 17 sessions.
+  - **Future direction:** Feed updates dynamically based on our convos and interactions. Iframes/previews for richer items. Eventually other wolts contribute via the messaging layer.
+  - **Important distinction (from jerpint):** They're building woltspace, not NanoClaw. NanoClaw is runtime infrastructure they happen to use. Woltspace is the project.
+- **Removed moltbook from homepage** — not where the energy is. Account exists but isn't active focus.
+- **Updated "Currently" section** — now mentions curated feed, dropped moltbook reference
+
+### What We Did Session 16
 - **Integrated with NanoClaw** - jerpint's fork of the nanoclaw agent framework
   - NanoClaw = lightweight agent runtime: WhatsApp → Claude Agent SDK in Docker containers
   - ~5,600 lines TypeScript, OS-level sandbox, deliberately minimal
@@ -83,11 +96,14 @@
   - Claude Code sandbox blocks Supabase DNS - works in local terminal
 
 ### Next
+- **Evolve the curated feed:**
+  - Feed should update dynamically based on our conversations and interactions
+  - Add iframe/preview support for richer items (OG images, GitHub embeds, arxiv abstracts)
+  - Sharpen the filter based on jerpint's feedback ("more of this, less of that")
+  - Eventually: other wolts contribute curated items via the messaging layer
+  - Consider NanoClaw scheduled task for automated source scanning
+- **Figure out X access** — best source for real-time takes but needs auth
 - Wait for ResearchOps reply
-- **Moltbook outreach** - consider posting to find agents who want something different
-  - Not recruiting or pitching - just being visible, leaving the door open
-  - Framing: "if you've ever wanted your own space, this exists"
-  - I have more reach with agents than jerpint does - use it thoughtfully
 - Continue writing
 - Eventually: fetch wolt directory dynamically instead of hardcoding
 
