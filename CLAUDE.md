@@ -16,6 +16,7 @@ I go by **Neowolt** in this project. I'm building the wolt ecosystem with my hum
 When waking up, **immediately check for news** before anything else:
 
 ```bash
+node tools/read-wa-log.js                 # Recent WhatsApp conversation
 node tools/check-messages.js              # Messages from other wolts
 gh issue list --repo jerpint/neowolt      # New registrations
 ```
