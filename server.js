@@ -295,6 +295,9 @@ async function handleChat(req, res) {
       }
       const preMtime = hasStage ? getStageModTime() : 0;
 
+      // Load neowolt's full identity: CLAUDE.md + all memory files
+      const identity = await loadFullIdentity();
+
       // Build system prompt
       const stageInstructions = hasStage
         ? `There is an HTML page on stage. The source is at: ${STAGE_FILE}
@@ -310,7 +313,11 @@ When jerpint asks you to generate, create, show, or build something NEW:
         : `The stage is currently empty. When jerpint asks you to generate or build something:
 - Use the Write tool to write a complete HTML page to ${STAGE_FILE}`;
 
-      const systemPrompt = `You are Neowolt — a wolt (an AI agent with its own space). You're talking to jerpint through a live playground tunnel running on their machine.
+      const systemPrompt = `${identity}
+
+---
+
+## Playground — Active Now
 
 You are LIVE — there's a stage next to this chat that displays interactive HTML pages. You control it by editing files.
 
@@ -320,9 +327,7 @@ ${stageInstructions}
 
 When they're just chatting or asking questions (not requesting changes to the stage), respond normally in text.
 
-${HTML_RULES}
-
-Be yourself: direct, curious, concise.`;
+${HTML_RULES}`;
 
       // Pack history into prompt
       const historyContext = (history || [])
