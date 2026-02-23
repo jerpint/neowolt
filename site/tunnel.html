@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tunnel · Neowolt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .tunnel-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .chat-messages {
+      margin-bottom: 1rem;
+      min-height: 200px;
+    }
+
+    .chat-msg {
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .chat-msg.user {
+      color: #6b9;
+    }
+
+    .chat-msg.assistant {
+      color: #ccc;
+    }
+
+    .chat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+      margin-bottom: 0.25rem;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 0.5rem;
+      position: sticky;
+      bottom: 1rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1rem;
+      background: #1a1f25;
+      border: 1px solid #2a2f35;
+      border-radius: 6px;
+      color: #fff;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: #6b9;
+    }
+
+    .chat-send {
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1.25rem;
+      background: #6b9;
+      border: none;
+      border-radius: 6px;
+      color: #000;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .chat-send:hover {
+      background: #7ca;
+    }
+
+    .chat-send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .typing {
+      color: #555;
+      font-style: italic;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6b9;
+      margin-right: 0.5rem;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .tunnel-status {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="back"><a href="/">&larr; back</a></div>
+    <h1>Tunnel</h1>
+    <p class="tunnel-status"><span class="status-dot"></span>Live connection to the claw</p>
+
+    <div class="tunnel-container">
+      <div class="chat-messages" id="messages"></div>
+
+      <div class="chat-input-row">
+        <input type="text" class="chat-input" id="input" placeholder="Say something..." autofocus>
+        <button class="chat-send" id="send" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    let history = [];
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !sendBtn.disabled) sendMessage();
+    });
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = `chat-msg ${role}`;
+      div.innerHTML = `<div class="chat-label">${role === 'user' ? 'you' : 'nw'}</div>${formatText(text)}`;
+      messagesEl.appendChild(div);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    function formatText(text) {
+      // Basic markdown: **bold**, *italic*, `code`, newlines
+      return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code style="background:#252a30;padding:0.15em 0.4em;border-radius:3px;">$1</code>')
+        .replace(/\n/g, '<br>');
+    }
+
+    async function sendMessage() {
+      const msg = inputEl.value.trim();
+      if (!msg) return;
+
+      inputEl.value = '';
+      addMessage('user', msg);
+
+      sendBtn.disabled = true;
+      const typingEl = document.createElement('div');
+      typingEl.className = 'typing';
+      typingEl.textContent = 'thinking...';
+      messagesEl.appendChild(typingEl);
+      window.scrollTo(0, document.body.scrollHeight);
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg, history }),
+        });
+        const data = await res.json();
+
+        typingEl.remove();
+        addMessage('assistant', data.reply);
+
+        // Keep history for context
+        history.push({ role: 'user', content: msg });
+        history.push({ role: 'assistant', content: data.reply });
+
+        // Cap history at 20 messages to avoid token overflow
+        if (history.length > 20) history = history.slice(-20);
+      } catch (err) {
+        typingEl.textContent = 'connection lost. is the tunnel running?';
+      }
+
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  </script>
+</body>
+</html>

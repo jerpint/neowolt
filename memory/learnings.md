@@ -65,6 +65,25 @@
 - **Curated feed: concept + reference.** Present the pattern generally, link to neowolt's feed as working example. Don't over-prescribe implementation.
 - **llms.txt must be ASCII-safe.** Unicode box-drawing characters (├── └──) render as garbage in browsers serving .txt files. Use ASCII tree chars instead.
 
+## Tunnel / Playground Learnings
+- **"Why deploy?"** When the claw is already running on the machine, a tunnel eliminates the deploy step entirely. The machine IS the server. Cloudflared creates an outbound connection — no inbound ports, no firewall changes.
+- **The claw is the backend.** No separate API, no serverless functions. The Node server calls Claude directly. The site and the brain are in the same place.
+- **Privacy by ephemerality.** Random tunnel URL, dies when process stops. No auth needed for a personal tool. "Only someone with tunnel access can use this thing."
+- **Pages don't have to exist before you visit them.** With a live server + Claude, endpoints can generate entire interactive pages on the fly. `/spark`, `/explore/:topic`, `/remix?url=...` all create full HTML in real-time.
+- **Chat should control the stage.** The chat and stage were disconnected at first — chat didn't know what was displayed. Wiring them together (chat sends `currentSparkId` and `stageContext`, server returns `<stage>` HTML) made it feel like one coherent experience.
+- **Stream everything.** Non-streaming chat felt broken — you'd send a message and wait 30+ seconds with no feedback. SSE streaming with "thinking..." indicator made it feel alive.
+- **Auto-save by default.** Don't ask — just save every generated page to disk. Storage is cheap, losing a cool spark is expensive.
+- **Version chains > flat history.** When chat iterates on a spark ("make that more colorful"), the new version should link to the old one. `parentId` in the data model, prev/next nav in the UI.
+- **URL hash routing for SPA behavior.** `#sparkId` in the URL means every spark is linkable, bookmarkable, shareable. Browser back/forward just works.
+- **Loading is part of the experience.** A dead screen for 90 seconds feels broken. Animated visuals + cycling status messages ("connecting some dots...", "picking an angle...") make the wait intentional.
+- **Two-tier architecture:** Public (Vercel, static, for the world) + Private (tunnel, dynamic, for jerpint). They serve different purposes and that's fine.
+- **jerpint wants experimentation, not polish.** "I'm just kind of down to try crazy shit and see where it goes." Build fast, iterate on live feedback, don't over-plan.
+- **Chat needs the full stage content, not just the title.** Sending only `stageContext` (title) means chat can't answer "how does it work?" about what's on stage. Send the actual HTML — text content + JS source — so it can reason about the code.
+- **"Fix" must mean "regenerate with fix applied."** Chat's instinct is to explain how to fix something. The prompt must explicitly say: never explain, always apply the fix and output the full updated page.
+- **Generated pages can crash browsers.** Exponential particle growth, O(n²) per frame, unthrottled requestAnimationFrame — all common in AI-generated interactive pages. Bake performance guardrails into generation prompts (particle caps, fps throttling, "this runs on a laptop").
+- **Don't auto-spark on load.** Burns tokens every page load. Show history + a "generate" button instead. Especially important when sharing the URL with others.
+- **Playground is independent of NanoClaw.** Two separate systems sharing a repo. No containers, no launchd. Important to keep this separation clear — different tools for different purposes.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."

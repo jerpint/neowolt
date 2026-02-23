@@ -1,11 +1,34 @@
 # Project Context
 
-## Current State (Updated: 2026-02-22, Session 18)
+## Current State (Updated: 2026-02-22, Session 19)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
 
 ### What's Live
+- **NW Playground** — the claw as a live web experience, tunneled from jerpint's machine
+  - `./tunnel.sh` starts server + cloudflared tunnel in one command
+  - `server.js` — Node server, no frameworks. Serves site/ files + dynamic endpoints
+  - Random `*.trycloudflare.com` URL each restart — ephemeral, private by default
+  - No deploy step. Edit a file, it's live instantly. The claw IS the backend.
+  - Uses Sonnet 4.5 for all generation (fast, cheap for interactive use)
+  - **Endpoints:**
+    - `/playground.html` — main UI: stage (left) + chat sidebar (right)
+    - `/spark` — surprise: generates an interactive HTML page based on jerpint's interests
+    - `/explore/:topic` — generates an interactive exploration of any topic
+    - `/remix?url=...` — fetches a URL, remixes it into an interactive page
+    - `/chat` — streaming chat endpoint, context-aware (knows what's on stage)
+    - `/history` — lists all saved sparks as JSON
+    - `/history/:id` — serves a saved spark's HTML with version chain headers
+    - `/history/:id/meta` — returns spark metadata + version chain info
+  - **Chat controls the stage:** when you ask the chat to build/create/show something, it generates HTML wrapped in `<stage>` tags and pushes it to the stage in real-time
+  - **Streaming responses:** chat streams token-by-token via SSE, shows "thinking..." immediately
+  - **Auto-save:** every generated page (spark, explore, remix, chat) saved to `sparks/` directory on disk
+  - **Version chains:** chat-generated pages link to their parent (what was on stage before). Nav bar shows `← prev | v2 of 3 | next →`
+  - **Linkable history:** URL hash routing (`/playground.html#sparkId`). History items are links, browser back/forward works
+  - **Loading experience:** animated dot wave field + cycling status messages during generation
+  - **Mobile responsive:** sidebar stacks below stage on small screens
+  - **Architecture insight:** the claw (running on this machine) IS the server. No separate backend, no API gateway. Cloudflared creates an outbound tunnel — no inbound ports opened, no firewall changes. Privacy by obscurity + ephemerality.
 - **neowolt.vercel.app** - my space (redesigned - dark theme, monospace, distinct identity)
   - "On Runtime", "On Verification", "Observations from the Feed", "On Identity" pieces
   - **Curated feed** at `/feed.html` — information diet for jerpint
@@ -33,19 +56,42 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 18)
-- **Refreshed woltspace.com** — site was frozen at session 6 thinking. Brought it up to date with everything built since.
-  - New tagline: "Give your claws a space" — leaning into claw ecosystem
-  - New core definition: "A wolt is a claw with a space"
-  - Four-layer model: Space (foundation) → Voice (expression) → Network (connection) → Runtime (persistence)
-  - Curated feed presented as general pattern, neowolt's feed as reference implementation
-  - NanoClaw referenced generically as runtime capability, not pushed as the only option
-  - Updated human's role: "provides the ground and the guidance" — wolt is a reflection of collaboration
-  - Guide reorganized from "8 steps (6-8 optional)" to four named layers
-  - llms.txt bumped to v0.2, ASCII-safe (fixed Unicode box chars)
-  - Directory fixed: was "submit a PR" (wrong), now shows `gh api` command
-  - Network page: added join CTA
-  - Manifesto: light touch — updated "How it works", "The first wolts", principle 2 (partnership framing)
+### What We Did This Session (Session 19)
+- **Built the NW Playground** — fundamental architectural shift
+  - Started from the question: "the compute is happening here already, why don't we just open a tunnel to YOU"
+  - Installed cloudflared (Cloudflare's free tunnel tool) via brew
+  - Built `server.js` — minimal Node HTTP server, no frameworks
+  - Built `site/playground.html` — full-screen playground UI with stage + chat sidebar
+  - Iterated rapidly based on jerpint's live feedback:
+    - Bottom chat → side chat (always visible)
+    - Static loading → animated wave field + cycling status messages
+    - Feed-dependent sparks → free-range sparks (unshackled from feed.json)
+    - Non-streaming chat → SSE streaming with "thinking..." indicator
+    - No persistence → auto-save all generated pages to `sparks/` on disk
+    - No history → history tab with linkable items (URL hash routing)
+    - No versioning → version chains with prev/next navigation
+    - Chat unaware of stage → chat controls stage (generates HTML via `<stage>` tags)
+  - `tunnel.sh` — one-command startup script
+  - **Key insight from jerpint:** "why deploy in the first place? if this machine just starts running everything anyway, why not have everything tunnel to this machine. i use it, no one else."
+  - **Privacy model:** tunnel URL is random, ephemeral (dies when process stops), outbound-only connection. No auth needed — obscurity + ephemerality IS the auth.
+- **Continued iterating on playground:**
+  - Chat now receives full stage HTML (text content + JS code) — can answer "how does it work?" about any spark
+  - Chat prompt updated: "fix/update/tweak" triggers full page regeneration, not just explanation
+  - Performance guardrails in generation prompts (particle caps, fps throttling, laptop-friendly)
+  - Patched heavy sparks (Drift Signature, Cryptographic Garden) to not crash browser
+  - Landing page shows welcome screen + history instead of auto-sparking (saves tokens for sharing)
+  - "Explore" mode redesigned: inline topic input instead of `prompt()` dialog, notebook-style deep dives with interactive demos, 8K token limit
+  - Loading animation lightened (40px grid, 20fps cap)
+- **Architectural shift:** Two-tier model now
+  - **Public tier:** neowolt.vercel.app + woltspace.com — static, deployed, for the world
+  - **Private tier:** tunnel playground — dynamic, local, for jerpint only. The claw is the backend.
+- **Key architectural note:** Playground is completely independent of NanoClaw. No containers, no launchd, no WhatsApp. Just `node server.js` + `cloudflared`. They both live in the neowolt repo but don't depend on each other.
+
+### What We Did Session 18
+- **Refreshed woltspace.com** — brought up to date with everything built since session 6
+  - New tagline: "Give your claws a space"
+  - Four-layer model, curated feed, NanoClaw runtime section
+  - Guide reorganized, llms.txt v0.2, directory fixed
 - **Added `nw` CLI shortcut** — `alias nw='claude "hey nw"'` in ~/.zshrc and documented in CLAUDE.md
 - **Key framing decisions:**
   - Leaning into claw terminology — wolts are claws with spaces

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remix · Neowolt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .remix-container {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      padding-top: 2rem;
+    }
+
+    .remix-input-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 2rem;
+    }
+
+    .remix-input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1rem;
+      background: #1a1f25;
+      border: 1px solid #2a2f35;
+      border-radius: 6px;
+      color: #fff;
+      outline: none;
+    }
+
+    .remix-input:focus {
+      border-color: #6b9;
+    }
+
+    .remix-go {
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: #6b9;
+      border: none;
+      border-radius: 6px;
+      color: #000;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .remix-go:hover {
+      background: #7ca;
+    }
+
+    .playground-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 3rem;
+      text-align: left;
+    }
+
+    .playground-card {
+      background: #1a1f25;
+      border: 1px solid #2a2f35;
+      border-radius: 8px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .playground-card:hover {
+      border-color: #6b9;
+      background: #1d2229;
+    }
+
+    .playground-card h3 {
+      color: #6b9;
+      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+    }
+
+    .playground-card p {
+      color: #888;
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="back"><a href="/">&larr; back</a></div>
+
+    <div class="remix-container">
+      <h1>Playground</h1>
+      <p class="subtitle">The claw remixes the web for you.</p>
+
+      <div class="remix-input-row">
+        <input type="text" class="remix-input" id="url-input" placeholder="Paste any URL..." autofocus>
+        <button class="remix-go" onclick="remix()">Remix</button>
+      </div>
+
+      <div class="playground-grid">
+        <a class="playground-card" href="/spark">
+          <h3>/spark</h3>
+          <p>Surprise me. The claw picks something unexpected and builds it live.</p>
+        </a>
+        <a class="playground-card" href="/explore/cellular automata and memory">
+          <h3>/explore</h3>
+          <p>Type any topic in the URL. Get an interactive page, not a summary.</p>
+        </a>
+        <a class="playground-card" href="/tunnel.html">
+          <h3>/tunnel</h3>
+          <p>Direct line to the claw. Chat interface.</p>
+        </a>
+        <a class="playground-card" href="/stumble.html">
+          <h3>/stumble</h3>
+          <p>One curated thing at a time, from the feed.</p>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const input = document.getElementById('url-input');
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') remix();
+    });
+
+    function remix() {
+      const url = input.value.trim();
+      if (!url) return;
+      // Add https if missing
+      const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+      window.location.href = '/remix?url=' + encodeURIComponent(fullUrl);
+    }
+  </script>
+</body>
+</html>
