@@ -165,17 +165,21 @@
     #chat-input {
       width: 100%;
       font-family: inherit;
-      font-size: 0.85rem;
-      padding: 0.6rem 0.8rem;
+      font-size: 1rem;
+      padding: 1rem;
       background: #0d1117;
       border: 1px solid #21262d;
       border-radius: 6px;
       color: #c9d1d9;
       outline: none;
       resize: none;
+      min-height: 3rem;
+      max-height: 12rem;
+      overflow-y: auto;
+      line-height: 1.5;
     }
 
-    #chat-input:focus { border-color: #6b9; }
+    #chat-input:focus { border-color: #6b9; box-shadow: 0 0 0 1px #6b9; }
     #chat-input::placeholder { color: #444; }
 
     #chat-buttons {
@@ -332,6 +336,93 @@
 
     #vim-indicator.visible { opacity: 1; }
 
+    #vim-mode {
+      position: fixed;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      font-size: 0.65rem;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid #21262d;
+      border-radius: 3px;
+      background: #161b22;
+      z-index: 1000;
+    }
+
+    #vim-mode.normal { color: #6b9; border-color: #6b9; }
+    #vim-mode.insert { color: #fb8; border-color: #fb8; }
+
+    /* NERDTree-style file navigator */
+    #tree-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    #tree-overlay.visible { display: flex; }
+
+    #tree-container {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 70vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #tree-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #21262d;
+      font-size: 0.75rem;
+      color: #6b9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #tree-header .help {
+      color: #555;
+      font-size: 0.65rem;
+    }
+
+    #tree-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+    }
+
+    .tree-item {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #888;
+      transition: background 0.1s;
+    }
+
+    .tree-item:hover {
+      background: #1c2128;
+    }
+
+    .tree-item.selected {
+      background: #21262d;
+      color: #c9d1d9;
+      border-left: 2px solid #6b9;
+    }
+
+    .tree-item .icon {
+      font-size: 0.75rem;
+      opacity: 0.6;
+    }
+
     /* Mobile: stack vertically */
     @media (max-width: 768px) {
       #main { flex-direction: column; }
@@ -399,7 +490,7 @@
       <div id="chat-messages"></div>
       <div id="history-panel"></div>
       <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="react, ask, redirect...">
+        <textarea id="chat-input" placeholder="react, ask, redirect..." rows="1"></textarea>
         <div id="chat-buttons">
           <button class="chat-btn" onclick="spark()">next</button>
           <button class="chat-btn primary" onclick="sendChat()">send</button>
@@ -409,6 +500,20 @@
   </div>
 
   <div id="vim-indicator">vim</div>
+  <div id="vim-mode" class="normal">-- NORMAL --</div>
+
+  <!-- NERDTree-style navigator -->
+  <div id="tree-overlay">
+    <div id="tree-container">
+      <div id="tree-header">
+        <span>NAVIGATE</span>
+        <span class="help">j/k: move · enter: go · space/esc/q: close</span>
+      </div>
+      <div id="tree-list">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
 
   <script>
     const iframe = document.getElementById('content');
@@ -429,13 +534,7 @@
     let currentSparkId = null;
     let currentSparkMeta = null; // { parentId, childId, version, totalVersions }
 
-    chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') sendChat();
-    });
-
-    document.getElementById('explore-topic').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submitExplore();
-    });
+    // Keydown handlers are set up in the vim navigation section below
 
     // --- Hash routing ---
     window.addEventListener('hashchange', () => {
@@ -828,9 +927,24 @@
 
     // --- Vim navigation ---
     const vimIndicator = document.getElementById('vim-indicator');
+    const vimModeEl = document.getElementById('vim-mode');
+    const treeOverlay = document.getElementById('tree-overlay');
+    const treeList = document.getElementById('tree-list');
+
     let lastKeyTime = 0;
     let lastKey = '';
-    let vimMode = true;
+    let vimMode = 'normal'; // 'normal' or 'insert'
+    let treeOpen = false;
+    let treeSelectedIndex = 0;
+
+    // Site navigation tree structure
+    const treeItems = [
+      { label: 'Playground', icon: '⚡', url: '/playground.html' },
+      { label: 'Work', icon: '🛠', url: '/work.html' },
+      { label: '---', separator: true },
+      { label: 'neowolt.vercel.app', icon: '🏠', url: 'https://neowolt.vercel.app' },
+      { label: 'woltspace.com', icon: '🌱', url: 'https://woltspace.com' },
+    ];
 
     function showVimIndicator(action) {
       vimIndicator.textContent = action;
@@ -838,20 +952,149 @@
       setTimeout(() => vimIndicator.classList.remove('visible'), 800);
     }
 
-    chatInput.addEventListener('focus', () => { vimMode = false; });
-    chatInput.addEventListener('blur', () => { vimMode = true; });
+    function setVimMode(mode) {
+      vimMode = mode;
+      vimModeEl.className = mode;
+      vimModeEl.textContent = mode === 'normal' ? '-- NORMAL --' : '-- INSERT --';
+    }
+
+    // Auto-resize textarea
+    function autoResize() {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 192) + 'px'; // max 12rem
+    }
+
+    chatInput.addEventListener('input', autoResize);
+    chatInput.addEventListener('focus', () => { setVimMode('insert'); });
+    chatInput.addEventListener('blur', () => { setVimMode('normal'); });
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChat();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        chatInput.blur();
+        setVimMode('normal');
+      }
+    });
 
     const exploreTopicInput = document.getElementById('explore-topic');
-    exploreTopicInput.addEventListener('focus', () => { vimMode = false; });
-    exploreTopicInput.addEventListener('blur', () => { vimMode = true; });
+    exploreTopicInput.addEventListener('focus', () => { setVimMode('insert'); });
+    exploreTopicInput.addEventListener('blur', () => { setVimMode('normal'); });
+    exploreTopicInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitExplore();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        exploreTopicInput.blur();
+        setVimMode('normal');
+      }
+    });
+
+    // --- Tree navigation ---
+    function renderTree() {
+      treeList.innerHTML = '';
+      treeItems.forEach((item, i) => {
+        if (item.separator) {
+          const sep = document.createElement('div');
+          sep.style.borderTop = '1px solid #21262d';
+          sep.style.margin = '0.5rem 0';
+          treeList.appendChild(sep);
+          return;
+        }
+        const div = document.createElement('div');
+        div.className = 'tree-item' + (i === treeSelectedIndex ? ' selected' : '');
+        div.innerHTML = `<span class="icon">${item.icon}</span><span>${item.label}</span>`;
+        div.onclick = () => navigateTo(item.url);
+        treeList.appendChild(div);
+      });
+    }
+
+    function openTree() {
+      treeOpen = true;
+      treeSelectedIndex = 0;
+      treeOverlay.classList.add('visible');
+      renderTree();
+    }
+
+    function closeTree() {
+      treeOpen = false;
+      treeOverlay.classList.remove('visible');
+    }
+
+    function moveTreeSelection(delta) {
+      const validItems = treeItems.filter(i => !i.separator);
+      const currentValid = treeItems.slice(0, treeSelectedIndex).filter(i => !i.separator).length;
+      let newValid = (currentValid + delta + validItems.length) % validItems.length;
+
+      // Map back to absolute index
+      let count = 0;
+      for (let i = 0; i < treeItems.length; i++) {
+        if (!treeItems[i].separator) {
+          if (count === newValid) {
+            treeSelectedIndex = i;
+            break;
+          }
+          count++;
+        }
+      }
+      renderTree();
+    }
+
+    function navigateTo(url) {
+      window.location.href = url;
+    }
+
+    function navigateSelected() {
+      const item = treeItems[treeSelectedIndex];
+      if (item && !item.separator) {
+        navigateTo(item.url);
+      }
+    }
 
     document.addEventListener('keydown', (e) => {
+      // Tree navigation mode
+      if (treeOpen) {
+        if (e.key === 'j') {
+          e.preventDefault();
+          moveTreeSelection(1);
+          return;
+        }
+        if (e.key === 'k') {
+          e.preventDefault();
+          moveTreeSelection(-1);
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          navigateSelected();
+          return;
+        }
+        if (e.key === ' ' || e.key === 'Escape' || e.key === 'q') {
+          e.preventDefault();
+          closeTree();
+          return;
+        }
+        return; // Block all other keys when tree is open
+      }
+
       // Don't intercept when input is focused
       if (document.activeElement === chatInput || document.activeElement === exploreTopicInput) return;
 
       const key = e.key;
       const ctrl = e.ctrlKey;
       const now = Date.now();
+
+      // Space - open tree navigator
+      if (key === ' ') {
+        e.preventDefault();
+        openTree();
+        showVimIndicator('tree');
+        return;
+      }
 
       // Ctrl+d - half page down
       if (ctrl && key === 'd') {
