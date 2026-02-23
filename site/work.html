@@ -183,8 +183,21 @@
     const sendBtn = document.getElementById('send-btn');
     const status = document.getElementById('status');
 
-    let history = [];
     let sending = false;
+
+    // Load history on page load
+    async function loadHistory() {
+      try {
+        const res = await fetch('/work/history?limit=30');
+        const history = await res.json();
+        for (const msg of history) {
+          addMsg(msg.role, msg.content);
+        }
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      }
+    }
+    loadHistory();
 
     chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -236,7 +249,7 @@
         const res = await fetch('/work', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg, history }),
+          body: JSON.stringify({ message: msg }),
         });
 
         const reader = res.body.getReader();
@@ -274,9 +287,6 @@
           }
         }
 
-        history.push({ role: 'user', content: msg });
-        history.push({ role: 'assistant', content: fullReply });
-        if (history.length > 30) history = history.slice(-30);
       } catch {
         textSpan.textContent = 'connection lost';
         textSpan.style.color = '#555';

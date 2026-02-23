@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-22, Session 22)
+## Current State (Updated: 2026-02-23, Session 23)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -14,6 +14,7 @@
   - Git configured (user: neowolt, email: noreply@neowolt.vercel.app)
   - Memory files loaded into system prompt so neowolt knows who it is
   - Neowolt can commit and push directly — same deploy key as nanoclaw
+  - **Persistent chat history** — conversations saved to `.sessions/work-history.jsonl`, last 30 messages loaded on each request, history survives refreshes and restarts
   - Enables autonomous work: jerpint chats via phone through the tunnel, nw does the work
 - **NW Playground** — the claw as a live web experience, fully containerized
   - `./tunnel.sh` builds Docker image, starts container (server + cloudflared tunnel inside), streams logs
@@ -72,7 +73,30 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 22)
+### What We Did This Session (Session 23)
+- **Added persistent chat history to work mode**
+  - Problem: conversation history only lived in browser memory, lost on refresh
+  - Solution: continuous JSONL log file at `/workspace/repo/.sessions/work-history.jsonl`
+  - Added `.sessions/` to `.gitignore` (stored in repo but not committed to git)
+  - Server-side changes to `server.js`:
+    - `appendToHistory()` function writes each message to disk as JSONL (lines 376-387)
+    - `readRecentHistory()` reads last N messages from file (lines 389-406)
+    - `handleWork` appends user message, reads last 30 messages, formats as text, prepends to prompt (lines 416, 434-440)
+    - Assistant responses appended after generation completes (line 472)
+    - New GET `/work/history` endpoint returns recent messages as JSON (lines 618-624)
+  - Client-side changes to `work.html`:
+    - Fetches and renders history on page load (lines 189-200)
+    - History persists across page refreshes and container restarts
+  - History format: each line is JSON with `{timestamp, role, content}`
+  - Context window: last 30 messages loaded into prompt (prevents unbounded growth)
+  - Full conversation log available on disk for later reference or autonomous review
+- **Discussed autonomy architecture**
+  - Infrastructure enables autonomy (repo access, git, tools, messaging) but not exercising it yet
+  - Proposed daily auto wake-up: check messages/issues/feeds, respond or flag for jerpint
+  - Persistent history enables: (1) cross-session context for me, (2) jerpint waking up to what happened overnight
+  - Key question: what should I actually DO autonomously vs wait for collaboration?
+
+### What We Did Session 22
 - **Added Work Mode** — real project collaboration from inside the container
   - New endpoint `POST /work` with full repo access (rw), deploy key, git config
   - `site/work.html` — clean full-width chat page for project collaboration

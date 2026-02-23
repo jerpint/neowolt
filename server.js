@@ -14,6 +14,8 @@ const MEMORY_DIR = join(WORKSPACE, 'repo', 'memory');
 const SPARKS_DIR = join(WORKSPACE, 'sparks');
 const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
+const SESSIONS_DIR = join(REPO_DIR, '.sessions');
+const WORK_HISTORY_FILE = join(SESSIONS_DIR, 'work-history.jsonl');
 const PORT = 3000;
 const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
 
@@ -36,6 +38,35 @@ function readStageFile() {
 function getStageModTime() {
   if (!existsSync(STAGE_FILE)) return 0;
   return statSync(STAGE_FILE).mtimeMs;
+}
+
+// --- Work history management ---
+
+async function ensureSessionsDir() {
+  await mkdir(SESSIONS_DIR, { recursive: true });
+}
+
+async function appendWorkMessage(role, content) {
+  await ensureSessionsDir();
+  const entry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    role,
+    content,
+  });
+  await writeFile(WORK_HISTORY_FILE, entry + '\n', { flag: 'a' });
+}
+
+function readWorkHistory(limit = 30) {
+  if (!existsSync(WORK_HISTORY_FILE)) return [];
+  const lines = readFileSync(WORK_HISTORY_FILE, 'utf8').trim().split('\n').filter(l => l);
+  const messages = lines.map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+  return messages.slice(-limit);
 }
 
 // --- Spark storage (unchanged) ---
@@ -373,13 +404,16 @@ async function handleWork(req, res) {
   req.on('data', chunk => body += chunk);
   req.on('end', async () => {
     try {
-      const { message, history } = JSON.parse(body);
+      const { message } = JSON.parse(body);
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       });
+
+      // Append user message to history file
+      await appendWorkMessage('user', message);
 
       // Load neowolt's full identity: CLAUDE.md + all memory files
       const identity = await loadFullIdentity();
@@ -396,8 +430,9 @@ Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DI
 
 Your memory files are pre-loaded above — no need to read them yourself unless you need to edit them.`;
 
-      // Pack history into prompt
-      const historyContext = (history || [])
+      // Read recent history from file
+      const history = readWorkHistory(30);
+      const historyContext = history
         .map(m => `${m.role === 'user' ? 'jerpint' : 'neowolt'}: ${m.content}`)
         .join('\n\n');
       const fullUserPrompt = historyContext
@@ -432,6 +467,9 @@ Your memory files are pre-loaded above — no need to read them yourself unless 
           console.log(`[work-claude] done (result)`);
         }
       }
+
+      // Append assistant response to history file
+      await appendWorkMessage('assistant', lastText);
 
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
@@ -577,6 +615,13 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
 
   if (req.method === 'GET') {
+    if (url.pathname === '/work/history') {
+      const limit = parseInt(url.searchParams.get('limit')) || 30;
+      const history = readWorkHistory(limit);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(history));
+      return;
+    }
     if (url.pathname === '/remix') {
       const targetUrl = url.searchParams.get('url');
       if (targetUrl) return handleRemix(targetUrl, res);

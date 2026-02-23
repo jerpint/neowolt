@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node tools/*)",
+      "Bash(gh issue:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(npm run build:*)",
+      "Bash(uv run:*)",
+      "Bash(file:*)",
+      "Bash(sqlite3:*)",
+      "Bash(wc:*)",
+      "Bash(test:*)",
+      "Bash(node:*)",
+      "Bash(brew:*)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.claude.com)",
+      "Bash(npm install:*)",
+      "Bash(claude --version:*)",
+      "Bash(claude:*)",
+      "Bash(kill:*)",
+      "Bash(xargs:*)",
+      "Bash(grep:*)",
+      "Bash(docker build:*)",
+      "Bash(docker rm:*)",
+      "Bash(lsof:*)",
+      "Bash(ssh-keygen:*)"
+    ]
+  },
+  "defaultMode": "acceptEdits"
+}
