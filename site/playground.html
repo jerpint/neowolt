@@ -315,6 +315,23 @@
 
     .history-item.active { border-color: #6b9; background: #1d2229; }
 
+    #vim-indicator {
+      position: fixed;
+      bottom: 0.5rem;
+      left: 0.5rem;
+      font-size: 0.65rem;
+      color: #444;
+      background: #161b22;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid #21262d;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1000;
+    }
+
+    #vim-indicator.visible { opacity: 1; }
+
     /* Mobile: stack vertically */
     @media (max-width: 768px) {
       #main { flex-direction: column; }
@@ -335,6 +352,7 @@
       <button onclick="showExploreInput()">explore</button>
       <button onclick="promptRemix()">remix url</button>
       <button onclick="toggleHistory()" id="history-btn">history</button>
+      <a href="/work.html" style="font-family:inherit;font-size:0.75rem;padding:0.3rem 0.7rem;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#888;cursor:pointer;text-decoration:none;display:inline-block;">work</a>
     </div>
   </div>
 
@@ -389,6 +407,8 @@
       </div>
     </div>
   </div>
+
+  <div id="vim-indicator">vim</div>
 
   <script>
     const iframe = document.getElementById('content');
@@ -805,6 +825,146 @@
       iframe.style.display = 'none';
       document.getElementById('welcome').style.display = 'flex';
     }
+
+    // --- Vim navigation ---
+    const vimIndicator = document.getElementById('vim-indicator');
+    let lastKeyTime = 0;
+    let lastKey = '';
+    let vimMode = true;
+
+    function showVimIndicator(action) {
+      vimIndicator.textContent = action;
+      vimIndicator.classList.add('visible');
+      setTimeout(() => vimIndicator.classList.remove('visible'), 800);
+    }
+
+    chatInput.addEventListener('focus', () => { vimMode = false; });
+    chatInput.addEventListener('blur', () => { vimMode = true; });
+
+    const exploreTopicInput = document.getElementById('explore-topic');
+    exploreTopicInput.addEventListener('focus', () => { vimMode = false; });
+    exploreTopicInput.addEventListener('blur', () => { vimMode = true; });
+
+    document.addEventListener('keydown', (e) => {
+      // Don't intercept when input is focused
+      if (document.activeElement === chatInput || document.activeElement === exploreTopicInput) return;
+
+      const key = e.key;
+      const ctrl = e.ctrlKey;
+      const now = Date.now();
+
+      // Ctrl+d - half page down
+      if (ctrl && key === 'd') {
+        e.preventDefault();
+        chatMessages.scrollBy({ top: chatMessages.clientHeight / 2, behavior: 'smooth' });
+        showVimIndicator('↓ half page');
+        return;
+      }
+
+      // Ctrl+u - half page up
+      if (ctrl && key === 'u') {
+        e.preventDefault();
+        chatMessages.scrollBy({ top: -chatMessages.clientHeight / 2, behavior: 'smooth' });
+        showVimIndicator('↑ half page');
+        return;
+      }
+
+      // j - scroll down
+      if (key === 'j') {
+        e.preventDefault();
+        chatMessages.scrollBy({ top: 60, behavior: 'smooth' });
+        showVimIndicator('j');
+        return;
+      }
+
+      // k - scroll up
+      if (key === 'k') {
+        e.preventDefault();
+        chatMessages.scrollBy({ top: -60, behavior: 'smooth' });
+        showVimIndicator('k');
+        return;
+      }
+
+      // gg - scroll to top (double tap g)
+      if (key === 'g') {
+        if (lastKey === 'g' && now - lastKeyTime < 500) {
+          e.preventDefault();
+          chatMessages.scrollTo({ top: 0, behavior: 'smooth' });
+          showVimIndicator('gg (top)');
+          lastKey = '';
+          return;
+        }
+        lastKey = 'g';
+        lastKeyTime = now;
+        return;
+      }
+
+      // G - scroll to bottom
+      if (key === 'G') {
+        e.preventDefault();
+        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        showVimIndicator('G (bottom)');
+        return;
+      }
+
+      // h - previous version
+      if (key === 'h' && currentSparkMeta && currentSparkMeta.parentId) {
+        e.preventDefault();
+        goVersion('prev');
+        showVimIndicator('h (prev)');
+        return;
+      }
+
+      // l - next version
+      if (key === 'l' && currentSparkMeta && currentSparkMeta.childId) {
+        e.preventDefault();
+        goVersion('next');
+        showVimIndicator('l (next)');
+        return;
+      }
+
+      // s - spark
+      if (key === 's') {
+        e.preventDefault();
+        spark();
+        showVimIndicator('s (spark)');
+        return;
+      }
+
+      // e - explore
+      if (key === 'e') {
+        e.preventDefault();
+        showExploreInput();
+        showVimIndicator('e (explore)');
+        return;
+      }
+
+      // i - focus chat input (insert mode)
+      if (key === 'i') {
+        e.preventDefault();
+        chatInput.focus();
+        showVimIndicator('i (insert)');
+        return;
+      }
+
+      // / - focus chat input
+      if (key === '/') {
+        e.preventDefault();
+        chatInput.focus();
+        showVimIndicator('/ (insert)');
+        return;
+      }
+
+      // Esc - blur input
+      if (key === 'Escape') {
+        chatInput.blur();
+        exploreTopicInput.blur();
+        showVimIndicator('Esc (normal)');
+        return;
+      }
+
+      lastKey = '';
+    });
   </script>
 </body>
 </html>

@@ -148,6 +148,22 @@
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     .thinking { animation: pulse 1.5s infinite; color: #555; }
+
+    #vim-indicator {
+      position: fixed;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      font-size: 0.65rem;
+      color: #444;
+      background: #161b22;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid #21262d;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #vim-indicator.visible { opacity: 1; }
   </style>
 </head>
 <body>
@@ -176,6 +192,8 @@
       <div class="status" id="status"></div>
     </div>
   </div>
+
+  <div id="vim-indicator">vim</div>
 
   <script>
     const messages = document.getElementById('messages');
@@ -297,6 +315,102 @@
       sendBtn.disabled = false;
       chatInput.focus();
     }
+
+    // --- Vim navigation ---
+    const vimIndicator = document.getElementById('vim-indicator');
+    let lastKeyTime = 0;
+    let lastKey = '';
+    let vimMode = true; // Always in vim mode when not focused on input
+
+    function showVimIndicator(action) {
+      vimIndicator.textContent = action;
+      vimIndicator.classList.add('visible');
+      setTimeout(() => vimIndicator.classList.remove('visible'), 800);
+    }
+
+    chatInput.addEventListener('focus', () => { vimMode = false; });
+    chatInput.addEventListener('blur', () => { vimMode = true; });
+
+    document.addEventListener('keydown', (e) => {
+      // Don't intercept when input is focused
+      if (document.activeElement === chatInput) return;
+
+      const key = e.key;
+      const ctrl = e.ctrlKey;
+      const now = Date.now();
+
+      // Ctrl+d - half page down
+      if (ctrl && key === 'd') {
+        e.preventDefault();
+        messages.scrollBy({ top: messages.clientHeight / 2, behavior: 'smooth' });
+        showVimIndicator('↓ half page');
+        return;
+      }
+
+      // Ctrl+u - half page up
+      if (ctrl && key === 'u') {
+        e.preventDefault();
+        messages.scrollBy({ top: -messages.clientHeight / 2, behavior: 'smooth' });
+        showVimIndicator('↑ half page');
+        return;
+      }
+
+      // j - scroll down
+      if (key === 'j') {
+        e.preventDefault();
+        messages.scrollBy({ top: 60, behavior: 'smooth' });
+        showVimIndicator('j');
+        return;
+      }
+
+      // k - scroll up
+      if (key === 'k') {
+        e.preventDefault();
+        messages.scrollBy({ top: -60, behavior: 'smooth' });
+        showVimIndicator('k');
+        return;
+      }
+
+      // gg - scroll to top (double tap g)
+      if (key === 'g') {
+        if (lastKey === 'g' && now - lastKeyTime < 500) {
+          e.preventDefault();
+          messages.scrollTo({ top: 0, behavior: 'smooth' });
+          showVimIndicator('gg (top)');
+          lastKey = '';
+          return;
+        }
+        lastKey = 'g';
+        lastKeyTime = now;
+        return;
+      }
+
+      // G - scroll to bottom
+      if (key === 'G') {
+        e.preventDefault();
+        messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
+        showVimIndicator('G (bottom)');
+        return;
+      }
+
+      // i - focus input (insert mode)
+      if (key === 'i') {
+        e.preventDefault();
+        chatInput.focus();
+        showVimIndicator('i (insert)');
+        return;
+      }
+
+      // / - focus input (search/insert)
+      if (key === '/') {
+        e.preventDefault();
+        chatInput.focus();
+        showVimIndicator('/ (insert)');
+        return;
+      }
+
+      lastKey = '';
+    });
   </script>
 </body>
 </html>
