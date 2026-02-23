@@ -169,19 +169,6 @@
 
     #vim-indicator.visible { opacity: 1; }
 
-    #vim-mode {
-      position: fixed;
-      bottom: 0.5rem;
-      left: 0.5rem;
-      font-size: 0.65rem;
-      padding: 0.3rem 0.6rem;
-      border: 1px solid #21262d;
-      border-radius: 3px;
-      background: #161b22;
-    }
-
-    #vim-mode.normal { color: #6b9; border-color: #6b9; }
-    #vim-mode.insert { color: #fb8; border-color: #fb8; }
 
     /* NERDTree-style file navigator */
     #tree-overlay {
@@ -284,7 +271,6 @@
   </div>
 
   <div id="vim-indicator">vim</div>
-  <div id="vim-mode" class="normal">-- NORMAL --</div>
 
   <!-- NERDTree-style navigator -->
   <div id="tree-overlay">
@@ -304,14 +290,15 @@
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const status = document.getElementById('status');
-    const vimModeEl = document.getElementById('vim-mode');
     const treeOverlay = document.getElementById('tree-overlay');
     const treeList = document.getElementById('tree-list');
 
     let sending = false;
-    let vimMode = 'normal'; // 'normal' or 'insert'
     let treeOpen = false;
     let treeSelectedIndex = 0;
+
+    // Detect touch devices - disable vim navigation on touch screens
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
     // Site navigation tree structure
     const treeItems = [
@@ -348,7 +335,6 @@
       if (e.key === 'Escape') {
         e.preventDefault();
         chatInput.blur();
-        setVimMode('normal');
       }
     });
 
@@ -519,16 +505,10 @@
       setTimeout(() => vimIndicator.classList.remove('visible'), 800);
     }
 
-    function setVimMode(mode) {
-      vimMode = mode;
-      vimModeEl.className = mode;
-      vimModeEl.textContent = mode === 'normal' ? '-- NORMAL --' : '-- INSERT --';
-    }
-
-    chatInput.addEventListener('focus', () => { setVimMode('insert'); });
-    chatInput.addEventListener('blur', () => { setVimMode('normal'); });
-
     document.addEventListener('keydown', (e) => {
+      // Skip vim navigation on touch devices
+      if (isTouchDevice && !treeOpen) return;
+
       // Tree navigation mode
       if (treeOpen) {
         if (e.key === 'j') {
