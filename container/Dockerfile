@@ -34,7 +34,7 @@ COPY container/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Create workspace directories (will be overlaid by mounts)
-RUN mkdir -p /workspace/site /workspace/sparks /workspace/.stage /workspace/memory /workspace/repo
+RUN mkdir -p /workspace/sparks /workspace/.stage /workspace/repo
 
 # Create .ssh dir before mounts so it's owned by node
 RUN mkdir -p /home/node/.ssh && chmod 700 /home/node/.ssh

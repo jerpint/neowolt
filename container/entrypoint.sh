@@ -13,10 +13,6 @@ if [ -d /skills ]; then
   cp -r /skills/. /home/node/.claude/skills/ 2>/dev/null || true
 fi
 
-# Copy CLAUDE.md from repo mount so the SDK picks it up
-if [ -f /workspace/repo/container/CLAUDE.md ]; then
-  cp /workspace/repo/container/CLAUDE.md /workspace/CLAUDE.md
-fi
 
 # Set up SSH for deploy key (git push to github.com)
 if [ -f /home/node/.ssh/neowolt-deploy ]; then
@@ -30,8 +26,8 @@ SSHEOF
   chmod 600 /home/node/.ssh/config
 fi
 
-# Add nw alias for interactive use inside the container
-echo 'alias nw="claude --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
+# Add nw alias for interactive use inside the container (runs from repo so CLAUDE.md is picked up)
+echo 'alias nw="cd /workspace/repo && claude --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
 
 # Write OAuth token to credentials file so claude CLI picks it up
 if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
