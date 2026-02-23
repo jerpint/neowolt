@@ -448,7 +448,7 @@ Your memory files are pre-loaded above — no need to read them yourself unless 
         options: {
           ...SDK_BASE,
           cwd: REPO_DIR,
-          maxTurns: 15,
+          maxTurns: 100,
           allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
         },
       })) {
