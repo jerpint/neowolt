@@ -8,11 +8,11 @@ cd "$(dirname "$0")"
 CONTAINER_NAME="neowolt-playground"
 IMAGE_NAME="neowolt-playground"
 
-# Read OAuth token (same as nanoclaw uses)
-OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' "$HOME/nanoclaw/.env" 2>/dev/null | cut -d= -f2-)
+# Read OAuth token from local .env
+OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' .env 2>/dev/null | cut -d= -f2-)
 if [ -z "$OAUTH_TOKEN" ]; then
-  echo "error: CLAUDE_CODE_OAUTH_TOKEN not found in ~/nanoclaw/.env"
-  echo "hint: copy the token from your nanoclaw setup"
+  echo "error: CLAUDE_CODE_OAUTH_TOKEN not found in .env"
+  echo "hint: add CLAUDE_CODE_OAUTH_TOKEN=<token> to .env"
   exit 1
 fi
 
