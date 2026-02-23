@@ -82,6 +82,15 @@
     .msg.user .msg-text { color: #6b9; }
     .msg.assistant .msg-text { color: #aaa; }
 
+    .msg.queued {
+      opacity: 0.4;
+    }
+
+    .msg.queued .msg-text::before {
+      content: '⏳ ';
+      font-size: 0.75em;
+    }
+
     .msg .msg-text code {
       background: #252a30;
       padding: 0.15em 0.4em;
@@ -277,7 +286,7 @@
     <div id="tree-container">
       <div id="tree-header">
         <span>NAVIGATE</span>
-        <span class="help">j/k: move · enter: go · space/esc/q: close</span>
+        <span class="help">j/k: move · o/enter: open · space/esc/q: close</span>
       </div>
       <div id="tree-list">
         <!-- Populated by JS -->
@@ -296,6 +305,7 @@
     let sending = false;
     let treeOpen = false;
     let treeSelectedIndex = 0;
+    let messageQueue = []; // Queue for messages sent while processing
 
     // Detect touch devices - disable vim navigation on touch screens
     const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
@@ -362,12 +372,37 @@
 
     async function send() {
       const msg = chatInput.value.trim();
-      if (!msg || sending) return;
+      if (!msg) return;
 
+      chatInput.value = '';
+
+      // If currently processing, queue this message
+      if (sending) {
+        const queuedDiv = addMsg('user', msg);
+        queuedDiv.classList.add('queued');
+        queuedDiv.dataset.message = msg;
+        messageQueue.push(msg);
+        return;
+      }
+
+      // Process immediately
+      processMessage(msg);
+    }
+
+    async function processMessage(msg) {
       sending = true;
       sendBtn.disabled = true;
-      chatInput.value = '';
-      addMsg('user', msg);
+
+      // Add user message (or upgrade queued message)
+      const existingQueued = Array.from(messages.children).find(
+        el => el.classList.contains('queued') && el.dataset.message === msg
+      );
+      if (existingQueued) {
+        existingQueued.classList.remove('queued');
+        delete existingQueued.dataset.message;
+      } else {
+        addMsg('user', msg);
+      }
 
       const msgDiv = document.createElement('div');
       msgDiv.className = 'msg assistant';
@@ -376,7 +411,9 @@
       messages.scrollTop = messages.scrollHeight;
       const textSpan = msgDiv.querySelector('.msg-text');
 
-      status.textContent = 'working...';
+      status.textContent = messageQueue.length > 0
+        ? `working... (${messageQueue.length} queued)`
+        : 'working...';
       let fullReply = '';
       let started = false;
 
@@ -429,8 +466,15 @@
       }
 
       sending = false;
-      sendBtn.disabled = false;
-      chatInput.focus();
+
+      // Process next queued message if any
+      if (messageQueue.length > 0) {
+        const nextMsg = messageQueue.shift();
+        setTimeout(() => processMessage(nextMsg), 100); // Small delay to show completion
+      } else {
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
     }
 
     // --- Tree navigation ---
@@ -521,7 +565,7 @@
           moveTreeSelection(-1);
           return;
         }
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === 'o') {
           e.preventDefault();
           navigateSelected();
           return;

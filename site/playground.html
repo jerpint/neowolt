@@ -157,6 +157,15 @@
     .msg.user .msg-text { color: #6b9; }
     .msg.assistant .msg-text { color: #aaa; }
 
+    .msg.queued {
+      opacity: 0.4;
+    }
+
+    .msg.queued .msg-text::before {
+      content: '⏳ ';
+      font-size: 0.75em;
+    }
+
     #chat-input-area {
       padding: 0.5rem;
       border-top: 1px solid #21262d;
@@ -492,7 +501,7 @@
     <div id="tree-container">
       <div id="tree-header">
         <span>NAVIGATE</span>
-        <span class="help">j/k: move · enter: go · space/esc/q: close</span>
+        <span class="help">j/k: move · o/enter: open · space/esc/q: close</span>
       </div>
       <div id="tree-list">
         <!-- Populated by JS -->
@@ -518,6 +527,8 @@
     let currentStageContext = '';
     let currentSparkId = null;
     let currentSparkMeta = null; // { parentId, childId, version, totalVersions }
+    let messageQueue = []; // Queue for messages sent while processing
+    let chatSending = false;
 
     // Keydown handlers are set up in the vim navigation section below
 
@@ -742,7 +753,33 @@
       if (!msg) return;
 
       chatInput.value = '';
-      addMsg('user', msg);
+
+      // If currently processing, queue this message
+      if (chatSending) {
+        const queuedDiv = addMsg('user', msg);
+        queuedDiv.classList.add('queued');
+        queuedDiv.dataset.message = msg;
+        messageQueue.push(msg);
+        return;
+      }
+
+      // Process immediately
+      processChatMessage(msg);
+    }
+
+    async function processChatMessage(msg) {
+      chatSending = true;
+
+      // Add user message (or upgrade queued message)
+      const existingQueued = Array.from(chatMessages.children).find(
+        el => el.classList.contains('queued') && el.dataset.message === msg
+      );
+      if (existingQueued) {
+        existingQueued.classList.remove('queued');
+        delete existingQueued.dataset.message;
+      } else {
+        addMsg('user', msg);
+      }
 
       const msgDiv = document.createElement('div');
       msgDiv.className = 'msg assistant';
@@ -819,6 +856,14 @@
         textSpan.textContent = 'connection lost';
         textSpan.style.color = '#555';
       }
+
+      chatSending = false;
+
+      // Process next queued message if any
+      if (messageQueue.length > 0) {
+        const nextMsg = messageQueue.shift();
+        setTimeout(() => processChatMessage(nextMsg), 100); // Small delay to show completion
+      }
     }
 
     function formatText(text) {
@@ -835,6 +880,7 @@
       div.innerHTML = `<span class="msg-label">${role === 'user' ? 'you' : 'nw'}</span><span class="msg-text">${formatText(text)}</span>`;
       chatMessages.appendChild(div);
       chatMessages.scrollTop = chatMessages.scrollHeight;
+      return div;
     }
 
     // --- Tabs & History ---
@@ -1045,7 +1091,7 @@
           moveTreeSelection(-1);
           return;
         }
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === 'o') {
           e.preventDefault();
           navigateSelected();
           return;
