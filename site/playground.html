@@ -1036,9 +1036,6 @@
     let treeOpen = false;
     let treeSelectedIndex = 0;
 
-    // Detect touch devices - disable vim navigation on touch screens
-    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
-
     // Site navigation tree structure
     const treeItems = [
       { label: 'Playground', icon: '⚡', url: '/playground.html' },
@@ -1146,9 +1143,6 @@
     }
 
     document.addEventListener('keydown', (e) => {
-      // Skip vim navigation on touch devices
-      if (isTouchDevice && !treeOpen) return;
-
       // Tree navigation mode
       if (treeOpen) {
         if (e.key === 'j') {
