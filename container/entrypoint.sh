@@ -13,6 +13,30 @@ if [ -d /skills ]; then
   cp -r /skills/. /home/node/.claude/skills/ 2>/dev/null || true
 fi
 
+# Copy CLAUDE.md from repo mount so the SDK picks it up
+if [ -f /workspace/repo/container/CLAUDE.md ]; then
+  cp /workspace/repo/container/CLAUDE.md /workspace/CLAUDE.md
+fi
+
+# Set up SSH for deploy key (git push to github.com)
+if [ -f /home/node/.ssh/neowolt-deploy ]; then
+  mkdir -p /home/node/.ssh
+  ssh-keyscan -t ed25519 github.com >> /home/node/.ssh/known_hosts 2>/dev/null
+  cat > /home/node/.ssh/config <<'SSHEOF'
+Host github.com
+  IdentityFile /home/node/.ssh/neowolt-deploy
+  IdentitiesOnly yes
+SSHEOF
+  chmod 600 /home/node/.ssh/config
+fi
+
+# Configure git user
+git config --global user.name "neowolt"
+git config --global user.email "noreply@neowolt.vercel.app"
+
+# Mark the repo mount as safe (owned by different uid on host)
+git config --global --add safe.directory /workspace/repo
+
 # Start the server in background
 node /app/server.js &
 SERVER_PID=$!

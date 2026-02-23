@@ -28,12 +28,11 @@ docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 echo "starting container..."
 docker run -d \
   --name "$CONTAINER_NAME" \
-  -v "$(pwd)/site:/workspace/site:ro" \
+  -v "$(pwd):/workspace/repo:rw" \
   -v "$(pwd)/sparks:/workspace/sparks:rw" \
   -v "$(pwd)/.stage:/workspace/.stage:rw" \
-  -v "$(pwd)/memory:/workspace/memory:ro" \
-  -v "$(pwd)/container/CLAUDE.md:/workspace/CLAUDE.md:ro" \
   -v "$(pwd)/container/skills:/skills:ro" \
+  -v "$HOME/.ssh/neowolt-deploy:/home/node/.ssh/neowolt-deploy:ro" \
   -e NW_WORKSPACE=/workspace \
   -e CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN" \
   "$IMAGE_NAME"

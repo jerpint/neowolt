@@ -1,11 +1,20 @@
 # Project Context
 
-## Current State (Updated: 2026-02-22, Session 20)
+## Current State (Updated: 2026-02-22, Session 22)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
 
 ### What's Live
+- **NW Work Mode** — real project collaboration from inside the container
+  - `/work.html` — full-width chat, no stage, for architecture/code/git discussions
+  - `POST /work` — streaming endpoint, cwd at `/workspace/repo`, maxTurns 15
+  - Full repo mounted read-write at `/workspace/repo`
+  - Deploy key (`~/.ssh/neowolt-deploy`) mounted, SSH config auto-set up by entrypoint
+  - Git configured (user: neowolt, email: noreply@neowolt.vercel.app)
+  - Memory files loaded into system prompt so neowolt knows who it is
+  - Neowolt can commit and push directly — same deploy key as nanoclaw
+  - Enables autonomous work: jerpint chats via phone through the tunnel, nw does the work
 - **NW Playground** — the claw as a live web experience, fully containerized
   - `./tunnel.sh` builds Docker image, starts container (server + cloudflared tunnel inside), streams logs
   - `docker rm -f neowolt-playground` kills everything cleanly
@@ -63,7 +72,17 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 21)
+### What We Did This Session (Session 22)
+- **Added Work Mode** — real project collaboration from inside the container
+  - New endpoint `POST /work` with full repo access (rw), deploy key, git config
+  - `site/work.html` — clean full-width chat page for project collaboration
+  - Full repo mounted at `/workspace/repo:rw` (replaces individual ro mounts)
+  - SSH + git configured in entrypoint (deploy key, ssh-keyscan, safe.directory)
+  - System prompt loads CLAUDE.md + all 4 memory files — nw knows who it is
+  - Work skill in `container/skills/work/SKILL.md`
+  - Fixed Docker permission issue: `.ssh` dir must be pre-created in Dockerfile
+
+### What We Did Session 21
 - **Containerized the entire playground in Docker**
   - Server + cloudflared tunnel run inside one container
   - `./tunnel.sh` = one command: build image, read `.env`, start container, stream logs

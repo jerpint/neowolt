@@ -7,6 +7,7 @@ FROM node:22-slim
 RUN apt-get update && apt-get install -y \
     curl \
     git \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cloudflared
@@ -33,7 +34,10 @@ COPY container/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Create workspace directories (will be overlaid by mounts)
-RUN mkdir -p /workspace/site /workspace/sparks /workspace/.stage /workspace/memory
+RUN mkdir -p /workspace/site /workspace/sparks /workspace/.stage /workspace/memory /workspace/repo
+
+# Create .ssh dir before mounts so it's owned by node
+RUN mkdir -p /home/node/.ssh && chmod 700 /home/node/.ssh
 
 # Set ownership to node user (non-root, required for --dangerously-skip-permissions)
 RUN chown -R node:node /workspace /home/node /app

@@ -8,8 +8,9 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
-const SITE_DIR = join(WORKSPACE, 'site');
-const MEMORY_DIR = join(WORKSPACE, 'memory');
+const REPO_DIR = join(WORKSPACE, 'repo');
+const SITE_DIR = join(WORKSPACE, 'repo', 'site');
+const MEMORY_DIR = join(WORKSPACE, 'repo', 'memory');
 const SPARKS_DIR = join(WORKSPACE, 'sparks');
 const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
@@ -125,6 +126,25 @@ async function loadContext() {
     context += items.map(i => `- ${i.title} [${i.source}]: ${i.why}`).join('\n');
   } catch {}
   return context;
+}
+
+// Load full neowolt identity: CLAUDE.md + all memory files
+async function loadFullIdentity() {
+  let identity = '';
+  // Load the project CLAUDE.md (defines who nw is)
+  try {
+    const claudeMd = await readFile(join(REPO_DIR, 'CLAUDE.md'), 'utf8');
+    identity += claudeMd + '\n\n';
+  } catch {}
+  // Load all memory files
+  const memFiles = ['identity.md', 'context.md', 'learnings.md', 'conversations.md'];
+  for (const f of memFiles) {
+    try {
+      const content = await readFile(join(MEMORY_DIR, f), 'utf8');
+      identity += `\n--- memory/${f} ---\n${content}\n`;
+    } catch {}
+  }
+  return identity;
 }
 
 // --- Fetch a URL (for remix) ---
@@ -341,6 +361,85 @@ Be yourself: direct, curious, concise.`;
   });
 }
 
+// --- Work mode handler (streaming, project collaboration) ---
+
+async function handleWork(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { message, history } = JSON.parse(body);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      // Load neowolt's full identity: CLAUDE.md + all memory files
+      const identity = await loadFullIdentity();
+
+      const systemPrompt = `${identity}
+
+---
+
+## Work Mode — Active Now
+
+You're talking to jerpint through a live tunnel (work.html). You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, commit and push to git.
+
+Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/.
+
+Your memory files are pre-loaded above — no need to read them yourself unless you need to edit them.`;
+
+      // Pack history into prompt
+      const historyContext = (history || [])
+        .map(m => `${m.role === 'user' ? 'jerpint' : 'neowolt'}: ${m.content}`)
+        .join('\n\n');
+      const fullUserPrompt = historyContext
+        ? `Previous conversation:\n${historyContext}\n\njerpint: ${message}`
+        : message;
+
+      const fullPrompt = `${systemPrompt}\n\n---\n\n${fullUserPrompt}`;
+      console.log(`[work-claude] starting: ${message.slice(0, 80)}...`);
+
+      let lastText = '';
+      for await (const msg of query({
+        prompt: fullPrompt,
+        options: {
+          ...SDK_BASE,
+          cwd: REPO_DIR,
+          maxTurns: 15,
+          allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
+        },
+      })) {
+        if (msg.type === 'assistant') {
+          let fullText = '';
+          for (const block of msg.message?.content || []) {
+            if (block.type === 'text') fullText += block.text;
+          }
+          if (fullText.length > lastText.length) {
+            const delta = fullText.slice(lastText.length);
+            res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
+            lastText = fullText;
+          }
+        }
+        if (msg.type === 'result') {
+          console.log(`[work-claude] done (result)`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    } catch (err) {
+      console.error('Work error:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+      }
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  });
+}
+
 // --- SSE helper for generation endpoints ---
 // Streams heartbeats during generation, then sends final HTML + sparkId
 
@@ -470,6 +569,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
   if (req.method === 'POST' && url.pathname === '/chat') return handleChat(req, res);
+  if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
 
   if (req.method === 'GET') {
     if (url.pathname === '/remix') {
@@ -538,6 +638,7 @@ server.listen(PORT, () => {
 
   endpoints:
     /playground.html — interactive playground
+    /work.html       — project collaboration
     /spark           — surprise me
     /explore/:topic  — deep-dive notebook
     /remix?url=...   — remix any web page

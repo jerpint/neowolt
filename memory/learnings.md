@@ -105,6 +105,12 @@
 - **Docker Hub metadata fetches can be very slow** (~250s). Don't assume the build is stuck.
 - **Skills as SKILL.md files.** Extract hardcoded system prompts into `container/skills/{name}/SKILL.md`. Claude auto-discovers them from `~/.claude/skills/`. Keeps server.js prompts lean, chat mode benefits most.
 
+## Work Mode Learnings
+- **SDK query() doesn't auto-load CLAUDE.md.** The interactive CLI does, but the SDK only sees what's in the prompt. For work mode to feel like "the real nw", must load CLAUDE.md + all memory files into the system prompt.
+- **Pre-load memories, don't make nw read them.** The agent CAN read files, but it wastes turns and adds latency. Inject identity upfront.
+- **Docker creates mount parent dirs as root.** If you mount a file at `/home/node/.ssh/key`, Docker creates `.ssh/` as root. Fix: pre-create the dir in Dockerfile before `USER node`.
+- **Full repo mount (rw) simplifies everything.** Instead of individual ro mounts for site/memory/CLAUDE.md, mount the whole repo rw. Work mode needs write access anyway.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."
