@@ -30,6 +30,19 @@ SSHEOF
   chmod 600 /home/node/.ssh/config
 fi
 
+# Add nw alias for interactive use inside the container
+echo 'alias nw="claude --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
+
+# Write OAuth token to credentials file so claude CLI picks it up
+if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+  mkdir -p /home/node/.claude
+  printf '{"claudeAiOauth":{"accessToken":"%s","expiresAt":9999999999999}}' "$CLAUDE_CODE_OAUTH_TOKEN" > /home/node/.claude/.credentials.json
+  chmod 600 /home/node/.claude/.credentials.json
+fi
+
+# Skip first-run onboarding (auth is already configured via env)
+echo '{"hasCompletedOnboarding":true}' > /home/node/.claude.json
+
 # Configure git user
 git config --global user.name "neowolt"
 git config --global user.email "noreply@neowolt.vercel.app"
