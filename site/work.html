@@ -324,7 +324,37 @@
       try {
         const res = await fetch('/work/history?limit=30');
         const history = await res.json();
+
+        // Deduplicate: collapse consecutive assistant messages (take longest)
+        // This handles the case where I save after each turn (creating overlapping entries)
+        const deduplicated = [];
+        let assistantGroup = [];
+
         for (const msg of history) {
+          if (msg.role === 'assistant') {
+            assistantGroup.push(msg);
+          } else {
+            // Flush assistant group
+            if (assistantGroup.length > 0) {
+              const longest = assistantGroup.reduce((a, b) =>
+                a.content.length > b.content.length ? a : b
+              );
+              deduplicated.push(longest);
+              assistantGroup = [];
+            }
+            deduplicated.push(msg);
+          }
+        }
+
+        // Flush final assistant group
+        if (assistantGroup.length > 0) {
+          const longest = assistantGroup.reduce((a, b) =>
+            a.content.length > b.content.length ? a : b
+          );
+          deduplicated.push(longest);
+        }
+
+        for (const msg of deduplicated) {
           addMsg(msg.role, msg.content);
         }
       } catch (err) {

@@ -461,15 +461,15 @@ Your memory files are pre-loaded above — no need to read them yourself unless 
             const delta = fullText.slice(lastText.length);
             res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
             lastText = fullText;
+
+            // Save after each turn so progress is visible immediately
+            await appendWorkMessage('assistant', lastText);
           }
         }
         if (msg.type === 'result') {
           console.log(`[work-claude] done (result)`);
         }
       }
-
-      // Append assistant response to history file
-      await appendWorkMessage('assistant', lastText);
 
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
