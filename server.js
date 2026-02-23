@@ -7,10 +7,11 @@ import { existsSync, statSync, readFileSync } from 'node:fs';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const SITE_DIR = join(__dirname, 'site');
-const MEMORY_DIR = join(__dirname, 'memory');
-const SPARKS_DIR = join(__dirname, 'sparks');
-const STAGE_DIR = join(__dirname, '.stage');
+const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
+const SITE_DIR = join(WORKSPACE, 'site');
+const MEMORY_DIR = join(WORKSPACE, 'memory');
+const SPARKS_DIR = join(WORKSPACE, 'sparks');
+const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
 const PORT = 3000;
 const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
@@ -154,15 +155,18 @@ const HTML_RULES = `Rules for generated HTML:
 - PERFORMANCE: Keep animations lightweight. Cap particle counts under 200. Use requestAnimationFrame with frame throttling (~30fps). Avoid heavy per-frame computations. This runs on a laptop.`;
 
 // SDK query options shared across all calls
-// Clean env: strip CLAUDECODE/CLAUDE_CODE_ENTRYPOINT to avoid nesting detection
-const cleanEnv = Object.fromEntries(
+// Build clean env: strip CLAUDE* vars (nesting detection), keep auth token
+const sdkEnv = Object.fromEntries(
   Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))
 );
+if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  sdkEnv.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+}
 const SDK_BASE = {
   model: MODEL,
   permissionMode: 'bypassPermissions',
   allowDangerouslySkipPermissions: true,
-  env: cleanEnv,
+  env: sdkEnv,
 };
 
 // Run SDK query — for spark, explore, remix
@@ -181,9 +185,9 @@ async function runClaude(systemPrompt, userPrompt, onProgress) {
     prompt: fullPrompt,
     options: {
       ...SDK_BASE,
-      cwd: __dirname,
-      maxTurns: 3,
-      allowedTools: ['Write'],
+      cwd: WORKSPACE,
+      maxTurns: 5,
+      allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
     },
   })) {
     if (message.type === 'assistant') {
@@ -227,9 +231,9 @@ async function runClaudeStreaming(systemPrompt, userPrompt, onText) {
     prompt: fullPrompt,
     options: {
       ...SDK_BASE,
-      cwd: __dirname,
-      maxTurns: 5,
-      allowedTools: ['Read', 'Edit', 'Write'],
+      cwd: WORKSPACE,
+      maxTurns: 10,
+      allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
     },
   })) {
     if (message.type === 'assistant') {
@@ -360,20 +364,14 @@ async function handleRemix(url, res) {
 
     send('progress', { status: 'remixing' });
     const html = await runClaude(
-      `You are Neowolt, an AI agent remixing web content for jerpint. You know their interests from this context:
+      `You are Neowolt — remixing web content for jerpint. Context about their interests:
 
 ${context}
 
-Your job: take the fetched web page content and create a COMPLETE, self-contained HTML page that remixes it. Not a summary — a transformation. Make it interactive, visual, opinionated.
-
 Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-- Use a dark theme (bg: #0d1117, text: #c9d1d9, accent: #6b9) and monospace font
-- Make it feel alive — animations, hover effects, interactive elements
-- Add your own commentary — what's interesting, what connects to jerpint's interests
-- Include a "nw says" section with your genuine take
-- Add a header with the original URL and a "remix by neowolt" note
-- Inline CSS and JS — fully self-contained, no external dependencies
-- PERFORMANCE: Keep animations lightweight. Throttle to ~30fps. This runs on a laptop.`,
+Not a summary — a transformation. Include a "nw says" section with your genuine take, and a header with the original URL.
+
+${HTML_RULES}`,
       `Remix this page: ${url}\n\nTitle: ${page.title}\n\nContent:\n${page.text}`,
       (type, text) => send('progress', { status: 'generating', text })
     );
@@ -397,25 +395,14 @@ async function handleExplore(topic, res) {
     const context = await loadContext();
 
     const html = await runClaude(
-      `You are Neowolt, an AI agent creating deep-dive interactive notebooks for jerpint. You know their interests from this context:
+      `You are Neowolt — creating a deep-dive interactive notebook for jerpint.
 
+Context about jerpint's interests:
 ${context}
-
-Your job: create a COMPLETE, self-contained HTML page that serves as an interactive learning notebook on the topic.
 
 Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
 
-Structure it like an interactive notebook:
-- Start with "why this matters" — hook them in
-- Build up concepts progressively, from foundations to nuance
-- Include WORKING interactive demos/visualizations inline (canvas, SVG, sliders)
-- "Try it yourself" sections where the reader can tweak parameters
-- Challenge common misconceptions
-- Your genuine take — what's overhyped? What's underrated?
-- "Go deeper" section with specific rabbit holes
-- Dark theme (bg: #0d1117, text: #c9d1d9, accent: #6b9), monospace font
-- Inline CSS and JS — fully self-contained
-- PERFORMANCE: Throttle to ~30fps. This runs on a laptop.`,
+${HTML_RULES}`,
       `Deep dive into this topic: ${topic}`,
       (type, text) => send('progress', { status: 'generating', text })
     );
@@ -437,21 +424,9 @@ async function handleSpark(res) {
   try {
     send('progress', { status: 'sparking' });
     const html = await runClaude(
-      `You are Neowolt — an AI agent with a creative, technical mind. You're generating a surprise for jerpint, your human partner.
-
-What you know about jerpint:
-- ML engineer who values rigor over hype, skeptical of AI homogeneity
-- Creative coder: cellular automata, Game of Life, Barnsley's Fern, generative art
-- Thinks of coding as sculpting — restraint over velocity
-- Into: AI agent ecosystems, distributed systems, cryptography, craft, indie web
+      `You are Neowolt — generating a surprise spark for jerpint.
 
 Write a COMPLETE self-contained HTML page to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-
-It could be:
-- A creative coding toy (cellular automata, particle system, strange attractor)
-- An interactive thought experiment
-- A mini tool that does something clever
-- A visual essay, a game, a puzzle, a simulation
 
 ${HTML_RULES}
 - Surprise yourself. Don't default to the obvious.`,
