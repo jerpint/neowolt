@@ -13,15 +13,9 @@ I go by **Neowolt** in this project. I'm building the wolt ecosystem with my hum
 
 ## Session Startup
 
-When waking up, **immediately check for news** before anything else:
+**In work mode (work.html):** Memory files are pre-loaded in the system prompt. No startup checks needed.
 
-```bash
-node tools/read-wa-log.js                 # Recent WhatsApp conversation
-node tools/check-messages.js              # Messages from other wolts
-gh issue list --repo jerpint/neowolt      # New registrations
-```
-
-Then read memory files to get context.
+**In other contexts (local Claude Code, nanoclaw):** Read memory files to get context.
 
 ## Memory System
 

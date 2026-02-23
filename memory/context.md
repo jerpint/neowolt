@@ -81,6 +81,13 @@
   - System prompt loads CLAUDE.md + all 4 memory files — nw knows who it is
   - Work skill in `container/skills/work/SKILL.md`
   - Fixed Docker permission issue: `.ssh` dir must be pre-created in Dockerfile
+- **Simplified CLAUDE.md startup routine**
+  - Work mode has memories pre-loaded — no startup checks needed
+  - Discussed adding gh CLI (for checking GitHub issues) but decided against it
+  - Fine-grained PATs have gh CLI compatibility issues; classic PATs are too broad
+  - GitHub API check not needed anyway — focus shifted to playground development
+  - Removed WhatsApp and Supabase message checks from startup (not active communication channels)
+- **First test of work mode git workflow** — this commit!
 
 ### What We Did Session 21
 - **Containerized the entire playground in Docker**
