@@ -37,8 +37,8 @@ git config --global user.email "noreply@neowolt.vercel.app"
 # Mark the repo mount as safe (owned by different uid on host)
 git config --global --add safe.directory /workspace/repo
 
-# Start the server in background
-node /app/server.js &
+# Start the server in background (run from repo mount so edits hot-reload via --watch)
+node --watch /workspace/repo/server.js &
 SERVER_PID=$!
 
 # Give it a moment
