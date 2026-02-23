@@ -147,10 +147,51 @@
       color: #0d1117;
       font-weight: 600;
       cursor: pointer;
+      align-self: flex-end; /* Stay at bottom when textarea grows */
     }
 
     #send-btn:hover { background: #7ca; }
     #send-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Floating scroll-to-top button */
+    #scroll-top-btn {
+      position: fixed;
+      bottom: 5rem;
+      left: 1rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 50%;
+      color: #888;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: all 0.2s;
+    }
+
+    #scroll-top-btn.visible { display: flex; }
+    #scroll-top-btn:hover { background: #30363d; color: #6b9; border-color: #6b9; }
+
+    /* Mobile adjustments */
+    @media (max-width: 600px) {
+      #input-area { padding: 0.5rem 1rem 0.75rem; }
+
+      #send-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+        min-height: 3rem; /* Match minimum textarea height */
+      }
+
+      #topbar { padding: 0.4rem 0.75rem; }
+      #topbar .title { font-size: 0.85rem; }
+      #topbar .mode { display: none; } /* Hide on very small screens */
+
+      #messages { padding: 0.75rem 1rem; }
+    }
 
     .status {
       font-size: 0.7rem;
@@ -259,6 +300,7 @@
       <span class="mode">project collaboration</span>
     </div>
     <div class="actions">
+      <button id="refresh-btn" onclick="location.reload()" style="font-family: inherit; font-size: 0.75rem; padding: 0.3rem 0.7rem; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #888; cursor: pointer;">↻ refresh</button>
       <a href="/playground.html">playground</a>
     </div>
   </div>
@@ -281,6 +323,9 @@
 
   <div id="vim-indicator">vim</div>
 
+  <!-- Scroll to top button -->
+  <button id="scroll-top-btn" onclick="scrollToTop()">↑</button>
+
   <!-- NERDTree-style navigator -->
   <div id="tree-overlay">
     <div id="tree-container">
@@ -301,11 +346,26 @@
     const status = document.getElementById('status');
     const treeOverlay = document.getElementById('tree-overlay');
     const treeList = document.getElementById('tree-list');
+    const scrollTopBtn = document.getElementById('scroll-top-btn');
 
     let sending = false;
     let treeOpen = false;
     let treeSelectedIndex = 0;
     let messageQueue = []; // Queue for messages sent while processing
+
+    // Show/hide scroll-to-top button based on scroll position
+    messages.addEventListener('scroll', () => {
+      if (messages.scrollTop > 300) {
+        scrollTopBtn.classList.add('visible');
+      } else {
+        scrollTopBtn.classList.remove('visible');
+      }
+    });
+
+    // Scroll to top function
+    function scrollToTop() {
+      messages.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     // Detect touch devices - disable vim navigation on touch screens
     const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
