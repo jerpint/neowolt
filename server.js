@@ -46,12 +46,20 @@ async function ensureSessionsDir() {
   await mkdir(SESSIONS_DIR, { recursive: true });
 }
 
+function cleanResponseText(text) {
+  // Remove any conversation history echoes that the SDK might include
+  // Strip lines that start with "jerpint:" or "neowolt:" (formatted history)
+  return text.replace(/\n+(jerpint|neowolt):\s+.*/gi, '').trim();
+}
+
 async function appendWorkMessage(role, content) {
   await ensureSessionsDir();
+  // Clean assistant messages to remove any echoed history formatting
+  const cleanedContent = role === 'assistant' ? cleanResponseText(content) : content;
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),
     role,
-    content,
+    content: cleanedContent,
   });
   await writeFile(WORK_HISTORY_FILE, entry + '\n', { flag: 'a' });
 }

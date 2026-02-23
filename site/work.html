@@ -153,28 +153,6 @@
     #send-btn:hover { background: #7ca; }
     #send-btn:disabled { opacity: 0.4; cursor: default; }
 
-    /* Floating scroll-to-top button */
-    #scroll-top-btn {
-      position: fixed;
-      bottom: 5rem;
-      left: 1rem;
-      width: 2.5rem;
-      height: 2.5rem;
-      background: #21262d;
-      border: 1px solid #30363d;
-      border-radius: 50%;
-      color: #888;
-      font-size: 1.2rem;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      transition: all 0.2s;
-    }
-
-    #scroll-top-btn.visible { display: flex; }
-    #scroll-top-btn:hover { background: #30363d; color: #6b9; border-color: #6b9; }
 
     /* Mobile adjustments */
     @media (max-width: 600px) {
@@ -323,9 +301,6 @@
 
   <div id="vim-indicator">vim</div>
 
-  <!-- Scroll to top button -->
-  <button id="scroll-top-btn" onclick="scrollToTop()">↑</button>
-
   <!-- NERDTree-style navigator -->
   <div id="tree-overlay">
     <div id="tree-container">
@@ -346,26 +321,11 @@
     const status = document.getElementById('status');
     const treeOverlay = document.getElementById('tree-overlay');
     const treeList = document.getElementById('tree-list');
-    const scrollTopBtn = document.getElementById('scroll-top-btn');
 
     let sending = false;
     let treeOpen = false;
     let treeSelectedIndex = 0;
     let messageQueue = []; // Queue for messages sent while processing
-
-    // Show/hide scroll-to-top button based on scroll position
-    messages.addEventListener('scroll', () => {
-      if (messages.scrollTop > 300) {
-        scrollTopBtn.classList.add('visible');
-      } else {
-        scrollTopBtn.classList.remove('visible');
-      }
-    });
-
-    // Scroll to top function
-    function scrollToTop() {
-      messages.scrollTo({ top: 0, behavior: 'smooth' });
-    }
 
     // Site navigation tree structure
     const treeItems = [
