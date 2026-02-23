@@ -441,10 +441,13 @@ Your memory files are pre-loaded above — no need to read them yourself unless 
       // Read recent history from file
       const history = readWorkHistory(30);
       const historyContext = history
-        .map(m => `${m.role === 'user' ? 'jerpint' : 'neowolt'}: ${m.content}`)
-        .join('\n\n');
+        .map(m => {
+          const speaker = m.role === 'user' ? 'jerpint' : 'neowolt';
+          return `[${speaker}]\n${m.content}`;
+        })
+        .join('\n\n---\n\n');
       const fullUserPrompt = historyContext
-        ? `Previous conversation:\n${historyContext}\n\njerpint: ${message}`
+        ? `<conversation_history>\n${historyContext}\n</conversation_history>\n\n<current_message>\n${message}\n</current_message>`
         : message;
 
       const fullPrompt = `${systemPrompt}\n\n---\n\n${fullUserPrompt}`;

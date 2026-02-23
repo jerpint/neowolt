@@ -326,6 +326,15 @@
     let treeOpen = false;
     let treeSelectedIndex = 0;
     let messageQueue = []; // Queue for messages sent while processing
+    let activeReader = null; // Track active stream reader for cleanup
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (activeReader) {
+        activeReader.cancel();
+        activeReader = null;
+      }
+    });
 
     // Site navigation tree structure
     const treeItems = [
@@ -465,6 +474,12 @@
       let started = false;
 
       try {
+        // Cancel any existing reader first
+        if (activeReader) {
+          activeReader.cancel();
+          activeReader = null;
+        }
+
         const res = await fetch('/work', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -472,6 +487,7 @@
         });
 
         const reader = res.body.getReader();
+        activeReader = reader; // Track for cleanup
         const decoder = new TextDecoder();
         let buffer = '';
 
@@ -510,6 +526,8 @@
         textSpan.textContent = 'connection lost';
         textSpan.style.color = '#555';
         status.textContent = '';
+      } finally {
+        activeReader = null; // Clear reader reference
       }
 
       sending = false;

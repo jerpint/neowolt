@@ -554,6 +554,15 @@
     let currentSparkMeta = null; // { parentId, childId, version, totalVersions }
     let messageQueue = []; // Queue for messages sent while processing
     let chatSending = false;
+    let activeReader = null; // Track active stream reader for cleanup
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (activeReader) {
+        activeReader.cancel();
+        activeReader = null;
+      }
+    });
 
     // Keydown handlers are set up in the vim navigation section below
 
@@ -817,6 +826,12 @@
       let started = false;
 
       try {
+        // Cancel any existing reader first
+        if (activeReader) {
+          activeReader.cancel();
+          activeReader = null;
+        }
+
         const res = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -830,6 +845,7 @@
         });
 
         const reader = res.body.getReader();
+        activeReader = reader; // Track for cleanup
         const decoder = new TextDecoder();
         let buffer = '';
 
@@ -880,6 +896,8 @@
       } catch {
         textSpan.textContent = 'connection lost';
         textSpan.style.color = '#555';
+      } finally {
+        activeReader = null; // Clear reader reference
       }
 
       chatSending = false;
