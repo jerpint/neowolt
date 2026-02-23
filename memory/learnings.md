@@ -82,16 +82,28 @@
 - **"Fix" must mean "regenerate with fix applied."** Chat's instinct is to explain how to fix something. The prompt must explicitly say: never explain, always apply the fix and output the full updated page.
 - **Generated pages can crash browsers.** Exponential particle growth, O(n²) per frame, unthrottled requestAnimationFrame — all common in AI-generated interactive pages. Bake performance guardrails into generation prompts (particle caps, fps throttling, "this runs on a laptop").
 - **Don't auto-spark on load.** Burns tokens every page load. Show history + a "generate" button instead. Especially important when sharing the URL with others.
-- **Playground is independent of NanoClaw.** Two separate systems sharing a repo. No containers, no launchd. Important to keep this separation clear — different tools for different purposes.
+- **Playground borrows patterns from NanoClaw but is independent.** Same OAuth token, same SDK approach, but separate Docker container, no launchd, no WhatsApp. Repo is self-contained — clone + `.env` + `./tunnel.sh`.
 
 ## Claude Agent SDK Learnings
 - **`CLAUDECODE=1` env var blocks nested SDK calls.** If running inside a Claude Code session, the SDK's internal `claude` process detects nesting and exits with code 1. Fix: strip `CLAUDE*` env vars from the env passed to `query()`. Pattern: `Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE')))`.
+- **But keep `CLAUDE_CODE_OAUTH_TOKEN`.** Strip all CLAUDE* for nesting detection, then re-add the OAuth token for auth. Without it, Claude CLI launches browser OAuth flow (doesn't work in containers).
+- **Auth via env var, not mounted files.** Nanoclaw's pattern: pass `CLAUDE_CODE_OAUTH_TOKEN` via env/stdin, never mount `~/.claude` directory. Cleaner, more portable, no credential files on disk inside container.
 - **Both permission flags required.** `permissionMode: 'bypassPermissions'` alone isn't enough — also need `allowDangerouslySkipPermissions: true` in the options. Without both, Claude exits with code 1.
 - **SDK `query()` returns async iterable.** All calls stream — iterate with `for await (const message of query(...))`. Message types: `system` (init), `assistant` (content blocks), `result` (final). No separate "non-streaming" mode.
 - **Stage file pattern works great with SDK.** Write current content to `.stage/current.html`, let Claude use Edit/Write tools on it, detect changes via mtime comparison. Much more reliable than parsing `<edit>` tags from model output.
 - **Copy patterns from nanoclaw.** The nanoclaw agent-runner has a battle-tested SDK integration. When stuck, reference `~/nanoclaw/container/agent-runner/src/index.ts`.
 - **Cloudflare tunnel timeouts are real.** ~100s idle timeout. Send SSE heartbeats during long generations to keep the connection alive. All endpoints should stream, not just chat.
 - **SDK replaces both API calls AND edit parsing.** The old approach had two problems: (1) paying per API token, (2) brittle `<edit>`/`<stage>` tag extraction with fuzzy matching. SDK solves both — Claude uses real file tools, subscription covers cost.
+
+## Docker / Container Learnings
+- **Can't overlay mounts inside a read-only mount.** Docker error: "create mountpoint: read-only file system". If you mount `/home/node/.claude:ro`, you can't also mount `.../skills` inside it. Fix: mount to a temp path and copy in entrypoint.
+- **`exec format error` = entrypoint not executable.** Always `RUN chmod +x` on entrypoint scripts in the Dockerfile. macOS file permissions don't reliably transfer to Linux containers.
+- **cloudflared inside the container works great.** One `docker rm -f` kills server + tunnel. Simpler than managing two processes on the host. Download in Dockerfile: `curl -fsSL ...cloudflared-linux-$(dpkg --print-architecture)`.
+- **No port mapping needed when tunnel is inside.** cloudflared connects to `localhost:3000` inside the container. No `-p 3000:3000` on docker run.
+- **Volume mounts for persistence.** Sparks, stage files, site — all mounted from host. Container is stateless and disposable. Artifacts survive container restarts.
+- **`.dockerignore` matters.** Only copy what the container needs (server.js, package files, entrypoint). Exclude site/, sparks/, memory/, .git/ — those come in via mounts.
+- **Docker Hub metadata fetches can be very slow** (~250s). Don't assume the build is stuck.
+- **Skills as SKILL.md files.** Extract hardcoded system prompts into `container/skills/{name}/SKILL.md`. Claude auto-discovers them from `~/.claude/skills/`. Keeps server.js prompts lean, chat mode benefits most.
 
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it

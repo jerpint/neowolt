@@ -6,15 +6,18 @@
 - **Phase: BUILDING AND ITERATING**
 
 ### What's Live
-- **NW Playground** — the claw as a live web experience, tunneled from jerpint's machine
-  - `./tunnel.sh` starts server + cloudflared tunnel in one command
-  - `server.js` — Node server, no frameworks. Serves site/ files + dynamic endpoints
+- **NW Playground** — the claw as a live web experience, fully containerized
+  - `./tunnel.sh` builds Docker image, starts container (server + cloudflared tunnel inside), streams logs
+  - `docker rm -f neowolt-playground` kills everything cleanly
   - Random `*.trycloudflare.com` URL each restart — ephemeral, private by default
-  - No deploy step. Edit a file, it's live instantly. The claw IS the backend.
+  - **Dockerized:** node:22-slim + cloudflared + claude-code CLI. No host deps beyond Docker.
+  - **Auth:** `CLAUDE_CODE_OAUTH_TOKEN` from `.env` file (gitignored) — same token as nanoclaw uses. No API key, no per-token charges.
   - **Powered by Claude Agent SDK** — uses `@anthropic-ai/claude-agent-sdk` `query()` function
-  - Claude writes/edits files directly via real tools (Write, Edit, Read) — no more tag parsing or fuzzy matching
-  - No API key needed — covered by Claude Code subscription
+  - Claude writes/edits files directly via real tools (Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch)
   - Uses Sonnet 4.5 for all generation (configurable via `MODEL` const or `NW_MODEL` env var)
+  - **Skills:** SKILL.md files in `container/skills/` auto-discovered by Claude (spark, explore, remix, stage)
+  - **Volume mounts:** site(ro), sparks(rw), .stage(rw), memory(ro) — all artifacts persist locally
+  - **Self-contained repo:** clone, add `.env` with token, run `./tunnel.sh`. That's it.
   - **Endpoints:**
     - `/playground.html` — main UI: stage (left) + chat sidebar (right)
     - `/spark` — surprise: generates an interactive HTML page based on jerpint's interests
@@ -60,31 +63,35 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 20)
+### What We Did This Session (Session 21)
+- **Containerized the entire playground in Docker**
+  - Server + cloudflared tunnel run inside one container
+  - `./tunnel.sh` = one command: build image, read `.env`, start container, stream logs
+  - `docker rm -f neowolt-playground` = kill everything
+  - Auth via `CLAUDE_CODE_OAUTH_TOKEN` (same token nanoclaw uses) — no API key, CC subscription covers cost
+  - Paths parameterized via `NW_WORKSPACE` env var — works in container (`/workspace`) and locally (`__dirname`)
+  - Expanded tool access: Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch
+  - Increased maxTurns: 5 for generation, 10 for chat
+  - Skills extracted from hardcoded prompts → `container/skills/` SKILL.md files
+  - `container/CLAUDE.md` = playground agent identity
+  - `container/entrypoint.sh` copies skills into `~/.claude/skills/` then starts server
+  - `.env` gitignored, `.dockerignore` keeps build context minimal
+- **Key architecture decisions:**
+  - Auth via env var (not mounted files) — copied from nanoclaw's pattern
+  - SDK env: strip all CLAUDE* vars (nesting detection), re-add CLAUDE_CODE_OAUTH_TOKEN
+  - Can't nest mounts inside read-only mount (Docker limitation) — entrypoint copies instead
+  - cloudflared inside container = one process to kill, no host deps beyond Docker
+  - All artifacts persist via volume mounts (sparks, stage files survive container restarts)
+- **Repo is now fully self-contained:** clone + `.env` + `./tunnel.sh` = running playground
+
+### What We Did Session 20
 - **Migrated playground from raw Anthropic API to Claude Agent SDK**
   - Replaced raw `fetch()` to `api.anthropic.com` with `query()` from `@anthropic-ai/claude-agent-sdk`
-  - Removed ALL `<edit>`/`<stage>` tag parsing, `fuzzyReplace()`, and brittle text matching
   - Claude now edits `.stage/current.html` directly using real Edit/Write/Read tools
-  - No more API key needed — SDK uses Claude Code subscription (already paid for)
-  - jerpint's key insight: "claude code is already paid for vs. api where i need to pay per query"
-- **Debugging journey:**
-  - First tried SDK `query()` — failed with "Claude Code process exited with code 1"
-  - Then tried `spawn('claude', [...])` subprocess — hung, never returned
-  - Root cause: `CLAUDECODE=1` env var set by parent Claude Code session triggers nesting detection
-  - Fix: strip `CLAUDE*` env vars before passing to SDK: `env: cleanEnv`
-  - Also need both `permissionMode: 'bypassPermissions'` AND `allowDangerouslySkipPermissions: true`
-  - Used nanoclaw's working implementation as reference pattern
-- **SSE streaming for all endpoints (Cloudflare timeout fix):**
-  - Problem: Cloudflare tunnel times out idle connections (~100s). SDK generation takes longer.
-  - Fix: all endpoints (spark/explore/remix/chat) now use Server-Sent Events
-  - Heartbeat pings during generation keep connection alive
-  - Claude's thinking text streams into the chat sidebar while pages generate
-- **Model configuration:** `MODEL` const at top of server.js, overridable via `NW_MODEL` env var
-- **Key files:**
-  - `server.js` — rewritten API layer: `runClaude()` (non-streaming) + `runClaudeStreaming()` (chat)
-  - `site/playground.html` — removed tag stripping, added SSE client for all endpoints
-  - `package.json` — `@anthropic-ai/claude-agent-sdk` dependency
-  - `.gitignore` — `node_modules/`, `.stage/`
+  - No more API key needed — SDK uses Claude Code subscription
+- **Debugging:** `CLAUDECODE=1` env var triggers nesting detection → strip `CLAUDE*` vars
+- **SSE streaming for all endpoints** (Cloudflare tunnel ~100s idle timeout fix)
+- **Model configuration:** `NW_MODEL` env var
 
 ### What We Did Session 19
 - **Built the NW Playground** — fundamental architectural shift

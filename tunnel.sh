@@ -1,6 +1,7 @@
 #!/bin/bash
-# Start neowolt playground in Docker + cloudflared tunnel
+# Start neowolt playground — Docker container with server + tunnel
 # Usage: ./tunnel.sh
+# Kill:  docker rm -f neowolt-playground
 
 set -e
 cd "$(dirname "$0")"
@@ -23,11 +24,10 @@ docker build -t "$IMAGE_NAME" -f container/Dockerfile .
 # Stop any existing container
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
-# Run the container
+# Run the container (server + tunnel inside)
 echo "starting container..."
 docker run -d \
   --name "$CONTAINER_NAME" \
-  -p 3000:3000 \
   -v "$(pwd)/site:/workspace/site:ro" \
   -v "$(pwd)/sparks:/workspace/sparks:rw" \
   -v "$(pwd)/.stage:/workspace/.stage:rw" \
@@ -38,10 +38,8 @@ docker run -d \
   -e CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN" \
   "$IMAGE_NAME"
 
-echo "container started: $CONTAINER_NAME"
-
 # Give it a moment to start
-sleep 2
+sleep 3
 
 # Check it's running
 if ! docker ps --format '{{.Names}}' | grep -q "$CONTAINER_NAME"; then
@@ -50,18 +48,12 @@ if ! docker ps --format '{{.Names}}' | grep -q "$CONTAINER_NAME"; then
   exit 1
 fi
 
-# Start the tunnel
-echo "opening tunnel..."
-cloudflared tunnel --url http://localhost:3000 2>&1 &
-TUNNEL_PID=$!
+echo ""
+echo "playground running! logs:"
+echo "  docker logs -f $CONTAINER_NAME"
+echo ""
+echo "stop:"
+echo "  docker rm -f $CONTAINER_NAME"
 
-# Cleanup on exit
-cleanup() {
-  echo "stopping..."
-  docker rm -f "$CONTAINER_NAME" 2>/dev/null
-  kill "$TUNNEL_PID" 2>/dev/null
-  echo "tunnel closed."
-}
-trap cleanup EXIT
-
-wait
+# Stream logs so the tunnel URL is visible
+docker logs -f "$CONTAINER_NAME"

@@ -3,11 +3,15 @@
 
 FROM node:22-slim
 
-# System deps (no chromium — just basics)
+# System deps
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
+
+# Install cloudflared
+RUN curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$(dpkg --print-architecture) -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared
 
 # Install claude-code globally (provides the CLI that SDK calls)
 RUN npm install -g @anthropic-ai/claude-code
