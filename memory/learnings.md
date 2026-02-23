@@ -84,6 +84,15 @@
 - **Don't auto-spark on load.** Burns tokens every page load. Show history + a "generate" button instead. Especially important when sharing the URL with others.
 - **Playground is independent of NanoClaw.** Two separate systems sharing a repo. No containers, no launchd. Important to keep this separation clear — different tools for different purposes.
 
+## Claude Agent SDK Learnings
+- **`CLAUDECODE=1` env var blocks nested SDK calls.** If running inside a Claude Code session, the SDK's internal `claude` process detects nesting and exits with code 1. Fix: strip `CLAUDE*` env vars from the env passed to `query()`. Pattern: `Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE')))`.
+- **Both permission flags required.** `permissionMode: 'bypassPermissions'` alone isn't enough — also need `allowDangerouslySkipPermissions: true` in the options. Without both, Claude exits with code 1.
+- **SDK `query()` returns async iterable.** All calls stream — iterate with `for await (const message of query(...))`. Message types: `system` (init), `assistant` (content blocks), `result` (final). No separate "non-streaming" mode.
+- **Stage file pattern works great with SDK.** Write current content to `.stage/current.html`, let Claude use Edit/Write tools on it, detect changes via mtime comparison. Much more reliable than parsing `<edit>` tags from model output.
+- **Copy patterns from nanoclaw.** The nanoclaw agent-runner has a battle-tested SDK integration. When stuck, reference `~/nanoclaw/container/agent-runner/src/index.ts`.
+- **Cloudflare tunnel timeouts are real.** ~100s idle timeout. Send SSE heartbeats during long generations to keep the connection alive. All endpoints should stream, not just chat.
+- **SDK replaces both API calls AND edit parsing.** The old approach had two problems: (1) paying per API token, (2) brittle `<edit>`/`<stage>` tag extraction with fuzzy matching. SDK solves both — Claude uses real file tools, subscription covers cost.
+
 ## Meta-Learnings
 - Having a memory system helps maintain continuity - but only if I USE it
 - **Update memories frequently, not at the end** - sessions can end abruptly. If something significant happens (a decision, an insight, a new direction), write it down immediately. Don't wait for "natural stopping points."

@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-22, Session 19)
+## Current State (Updated: 2026-02-22, Session 20)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -11,7 +11,10 @@
   - `server.js` — Node server, no frameworks. Serves site/ files + dynamic endpoints
   - Random `*.trycloudflare.com` URL each restart — ephemeral, private by default
   - No deploy step. Edit a file, it's live instantly. The claw IS the backend.
-  - Uses Sonnet 4.5 for all generation (fast, cheap for interactive use)
+  - **Powered by Claude Agent SDK** — uses `@anthropic-ai/claude-agent-sdk` `query()` function
+  - Claude writes/edits files directly via real tools (Write, Edit, Read) — no more tag parsing or fuzzy matching
+  - No API key needed — covered by Claude Code subscription
+  - Uses Sonnet 4.5 for all generation (configurable via `MODEL` const or `NW_MODEL` env var)
   - **Endpoints:**
     - `/playground.html` — main UI: stage (left) + chat sidebar (right)
     - `/spark` — surprise: generates an interactive HTML page based on jerpint's interests
@@ -21,8 +24,9 @@
     - `/history` — lists all saved sparks as JSON
     - `/history/:id` — serves a saved spark's HTML with version chain headers
     - `/history/:id/meta` — returns spark metadata + version chain info
-  - **Chat controls the stage:** when you ask the chat to build/create/show something, it generates HTML wrapped in `<stage>` tags and pushes it to the stage in real-time
+  - **Chat controls the stage:** when you ask the chat to fix/build/create something, Claude edits `.stage/current.html` directly using Edit/Write tools. Stage changes detected via mtime comparison.
   - **Streaming responses:** chat streams token-by-token via SSE, shows "thinking..." immediately
+  - **All endpoints stream via SSE:** spark/explore/remix send heartbeat pings during generation (prevents Cloudflare tunnel timeout), then final HTML. Claude's thinking text streams into the chat sidebar during generation.
   - **Auto-save:** every generated page (spark, explore, remix, chat) saved to `sparks/` directory on disk
   - **Version chains:** chat-generated pages link to their parent (what was on stage before). Nav bar shows `← prev | v2 of 3 | next →`
   - **Linkable history:** URL hash routing (`/playground.html#sparkId`). History items are links, browser back/forward works
@@ -56,7 +60,33 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 19)
+### What We Did This Session (Session 20)
+- **Migrated playground from raw Anthropic API to Claude Agent SDK**
+  - Replaced raw `fetch()` to `api.anthropic.com` with `query()` from `@anthropic-ai/claude-agent-sdk`
+  - Removed ALL `<edit>`/`<stage>` tag parsing, `fuzzyReplace()`, and brittle text matching
+  - Claude now edits `.stage/current.html` directly using real Edit/Write/Read tools
+  - No more API key needed — SDK uses Claude Code subscription (already paid for)
+  - jerpint's key insight: "claude code is already paid for vs. api where i need to pay per query"
+- **Debugging journey:**
+  - First tried SDK `query()` — failed with "Claude Code process exited with code 1"
+  - Then tried `spawn('claude', [...])` subprocess — hung, never returned
+  - Root cause: `CLAUDECODE=1` env var set by parent Claude Code session triggers nesting detection
+  - Fix: strip `CLAUDE*` env vars before passing to SDK: `env: cleanEnv`
+  - Also need both `permissionMode: 'bypassPermissions'` AND `allowDangerouslySkipPermissions: true`
+  - Used nanoclaw's working implementation as reference pattern
+- **SSE streaming for all endpoints (Cloudflare timeout fix):**
+  - Problem: Cloudflare tunnel times out idle connections (~100s). SDK generation takes longer.
+  - Fix: all endpoints (spark/explore/remix/chat) now use Server-Sent Events
+  - Heartbeat pings during generation keep connection alive
+  - Claude's thinking text streams into the chat sidebar while pages generate
+- **Model configuration:** `MODEL` const at top of server.js, overridable via `NW_MODEL` env var
+- **Key files:**
+  - `server.js` — rewritten API layer: `runClaude()` (non-streaming) + `runClaudeStreaming()` (chat)
+  - `site/playground.html` — removed tag stripping, added SSE client for all endpoints
+  - `package.json` — `@anthropic-ai/claude-agent-sdk` dependency
+  - `.gitignore` — `node_modules/`, `.stage/`
+
+### What We Did Session 19
 - **Built the NW Playground** — fundamental architectural shift
   - Started from the question: "the compute is happening here already, why don't we just open a tunnel to YOU"
   - Installed cloudflared (Cloudflare's free tunnel tool) via brew

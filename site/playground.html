@@ -543,34 +543,70 @@
     }
 
     // --- Content generators ---
+    // SSE-based generation — streams progress into chat, receives final HTML
+    function streamGenerate(url, loadingType, loadingLabel) {
+      showLoading(loadingType, loadingLabel);
+      // Show streaming progress in chat sidebar
+      showTab('chat');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'msg assistant';
+      msgDiv.innerHTML = '<span class="msg-label">nw</span><span class="msg-text" style="color:#555;font-style:italic;">thinking...</span>';
+      chatMessages.appendChild(msgDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      const textSpan = msgDiv.querySelector('.msg-text');
+      let lastText = '';
+
+      return new Promise((resolve, reject) => {
+        const es = new EventSource(url);
+        es.onmessage = (ev) => {
+          try {
+            const data = JSON.parse(ev.data);
+            if (data.type === 'progress') {
+              loadingText.textContent = (data.status || 'generating') + '...';
+              // Stream Claude's thinking into chat
+              if (data.text && data.text !== lastText) {
+                textSpan.style.color = '';
+                textSpan.style.fontStyle = '';
+                textSpan.innerHTML = formatText(data.text);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                lastText = data.text;
+              }
+            } else if (data.type === 'stage') {
+              es.close();
+              if (!lastText) textSpan.innerHTML = '<em style="color:#555;">done</em>';
+              showInStage(data.html, data.sparkId, null);
+              resolve();
+            } else if (data.type === 'error') {
+              es.close();
+              textSpan.innerHTML = '<span style="color:#f66;">' + (data.message || 'something went wrong') + '</span>';
+              loadingText.textContent = data.message || 'something went wrong';
+              stopLoadingVisual();
+              reject(new Error(data.message));
+            } else if (data.type === 'done') {
+              es.close();
+            }
+          } catch {}
+        };
+        es.onerror = () => {
+          es.close();
+          textSpan.innerHTML = '<span style="color:#f66;">connection lost</span>';
+          loadingText.textContent = 'connection lost';
+          stopLoadingVisual();
+          reject(new Error('connection lost'));
+        };
+      });
+    }
+
     async function spark() {
-      showLoading('spark');
-      try {
-        const res = await fetch('/spark');
-        const sparkId = res.headers.get('x-spark-id');
-        const html = await res.text();
-        showInStage(html, sparkId, null);
-      } catch { loadingText.textContent = 'connection lost'; stopLoadingVisual(); }
+      try { await streamGenerate('/spark', 'spark'); } catch {}
     }
 
     async function explore(topic) {
-      showLoading('explore', topic);
-      try {
-        const res = await fetch('/explore/' + encodeURIComponent(topic));
-        const sparkId = res.headers.get('x-spark-id');
-        const html = await res.text();
-        showInStage(html, sparkId, null);
-      } catch { loadingText.textContent = 'connection lost'; stopLoadingVisual(); }
+      try { await streamGenerate('/explore/' + encodeURIComponent(topic), 'explore', topic); } catch {}
     }
 
     async function remix(url) {
-      showLoading('remix', url);
-      try {
-        const res = await fetch('/remix?url=' + encodeURIComponent(url));
-        const sparkId = res.headers.get('x-spark-id');
-        const html = await res.text();
-        showInStage(html, sparkId, null);
-      } catch { loadingText.textContent = 'connection lost'; stopLoadingVisual(); }
+      try { await streamGenerate('/remix?url=' + encodeURIComponent(url), 'remix', url); } catch {}
     }
 
     function showExploreInput() {
@@ -652,8 +688,7 @@
                   started = true;
                 }
                 fullReply += event.text;
-                const display = fullReply.replace(/<stage>[\s\S]*?<\/stage>/g, '').replace(/<stage>[\s\S]*/g, '');
-                textSpan.innerHTML = formatText(display);
+                textSpan.innerHTML = formatText(fullReply);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
               }
 
