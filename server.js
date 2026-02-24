@@ -714,7 +714,7 @@ ${HTML_RULES}`;
         .map(m => `${m.role === 'user' ? 'human' : name}: ${m.content}`)
         .join('\n\n');
       const fullPrompt = historyContext
-        ? `Previous conversation:\n${historyContext}\n\njerpint: ${message}`
+        ? `Previous conversation:\n${historyContext}\n\nhuman: ${message}`
         : message;
 
       // Run Claude CLI with streaming
@@ -904,23 +904,14 @@ ${HTML_RULES}`,
       (type, text) => send('progress', { status: 'generating', text })
     );
 
-    // Generate rabbit hole suggestions in parallel with saving
-    const [id, rabbitHtml] = await Promise.all([
-      saveSpark('explore', html, { topic }),
-      generateRabbitHole(topic),
-    ]);
+    // Generate rabbit hole suggestions in parallel with page generation
+    const rabbitHtml = await generateRabbitHole(topic);
+    const finalHtml = rabbitHtml
+      ? html.replace('</body>', `${rabbitHtml}\n</body>`)
+      : html;
 
-    // Inject rabbit hole footer into the saved HTML
-    if (rabbitHtml) {
-      const withRabbit = html.replace('</body>', `${rabbitHtml}\n</body>`);
-      await writeFile(join(SPARKS_DIR, `${id}.json`), JSON.stringify({
-        id, type: 'explore', title: html.match(/<title>(.*?)<\/title>/i)?.[1] || topic,
-        timestamp: new Date().toISOString(), topic, html: withRabbit,
-      }));
-      send('stage', { html: withRabbit, sparkId: id });
-    } else {
-      send('stage', { html, sparkId: id });
-    }
+    const id = await saveSpark('explore', finalHtml, { topic });
+    send('stage', { html: finalHtml, sparkId: id });
     send('done', {});
     res.end();
   } catch (err) {
