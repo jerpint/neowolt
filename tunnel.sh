@@ -1,13 +1,46 @@
 #!/bin/bash
 # Start neowolt playground — Docker container with server + tunnel
-# Usage: ./tunnel.sh
-# Kill:  docker rm -f neowolt-playground
+#
+# Usage:
+#   ./tunnel.sh            — build + start (keeps existing container if running)
+#   ./tunnel.sh --rebuild  — force rebuild (kills existing container)
+#   ./tunnel.sh --shell    — drop into the running container
+#   ./tunnel.sh --kill     — stop and remove the container
 
 set -e
 cd "$(dirname "$0")"
 
 CONTAINER_NAME="neowolt-playground"
 IMAGE_NAME="neowolt-playground"
+
+# --- Subcommands ---
+
+if [ "$1" = "--shell" ]; then
+  docker exec -it "$CONTAINER_NAME" bash
+  exit 0
+fi
+
+if [ "$1" = "--kill" ]; then
+  docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+  echo "container killed."
+  exit 0
+fi
+
+if [ "$1" = "--rebuild" ]; then
+  docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+fi
+
+# --- Check if already running ---
+
+if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+  echo "container already running. streaming logs..."
+  echo "  (use --rebuild to force restart, --shell to enter)"
+  echo ""
+  docker logs -f "$CONTAINER_NAME"
+  exit 0
+fi
+
+# --- Build + start ---
 
 # Read OAuth token from local .env
 OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' .env 2>/dev/null | cut -d= -f2-)
@@ -21,7 +54,7 @@ fi
 echo "building container..."
 docker build -t "$IMAGE_NAME" -f container/Dockerfile .
 
-# Stop any existing container
+# Clean up stopped container with same name
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
 # Run the container (server + tunnel inside)
@@ -48,11 +81,11 @@ if ! docker ps --format '{{.Names}}' | grep -q "$CONTAINER_NAME"; then
 fi
 
 echo ""
-echo "playground running! logs:"
-echo "  docker logs -f $CONTAINER_NAME"
+echo "playground running!"
+echo "  ./tunnel.sh --shell   — enter container"
+echo "  ./tunnel.sh --kill    — stop everything"
+echo "  ./tunnel.sh --rebuild — rebuild + restart"
 echo ""
-echo "stop:"
-echo "  docker rm -f $CONTAINER_NAME"
 
 # Stream logs so the tunnel URL is visible
 docker logs -f "$CONTAINER_NAME"
