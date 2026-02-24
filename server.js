@@ -11,6 +11,7 @@ const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
 const REPO_DIR = join(WORKSPACE, 'repo');
 const SITE_DIR = join(WORKSPACE, 'repo', 'site');
 const MEMORY_DIR = join(WORKSPACE, 'repo', 'memory');
+const SOUL_FILE = join(WORKSPACE, 'repo', 'SOUL.md');
 const SPARKS_DIR = join(WORKSPACE, 'sparks');
 const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
@@ -47,9 +48,9 @@ async function ensureSessionsDir() {
 }
 
 function cleanResponseText(text) {
-  // Remove any conversation history echoes that the SDK might include
-  // Strip lines that start with "jerpint:" or "neowolt:" (formatted history)
-  return text.replace(/\n+(jerpint|neowolt):\s+.*/gi, '').trim();
+  // Remove any conversation history echoes the SDK might include
+  // Strip lines that look like "[speaker]\nContent" history formatting
+  return text.replace(/\n+\[(jerpint|neowolt|human|wolt)\]\n.*/gi, '').trim();
 }
 
 async function appendWorkMessage(role, content) {
@@ -147,17 +148,24 @@ const MIME = {
   '.txt': 'text/plain', '.pub': 'text/plain',
 };
 
-// --- Context loading ---
+// --- Soul + context loading ---
+
+// Load SOUL.md — the wolt's core identity. This is what makes each wolt unique.
+// Returns { soul, name } where name is extracted from the first H1 heading.
+async function loadSoul() {
+  try {
+    const soul = await readFile(SOUL_FILE, 'utf8');
+    const nameMatch = soul.match(/^#\s+(.+)$/m);
+    const name = nameMatch ? nameMatch[1].trim() : 'wolt';
+    return { soul, name };
+  } catch {
+    return { soul: '', name: 'wolt' };
+  }
+}
 
 async function loadContext() {
-  const files = ['identity.md', 'context.md', 'learnings.md'];
-  let context = '';
-  for (const f of files) {
-    try {
-      const content = await readFile(join(MEMORY_DIR, f), 'utf8');
-      context += `\n--- ${f} ---\n${content}\n`;
-    } catch {}
-  }
+  const { soul } = await loadSoul();
+  let context = soul ? `${soul}\n` : '';
   try {
     const feed = await readFile(join(SITE_DIR, 'feed.json'), 'utf8');
     const items = JSON.parse(feed).items;
@@ -167,15 +175,11 @@ async function loadContext() {
   return context;
 }
 
-// Load full neowolt identity: CLAUDE.md + all memory files
+// Load full identity for work/chat: SOUL.md + memory files + CLAUDE.md
 async function loadFullIdentity() {
-  let identity = '';
-  // Load the project CLAUDE.md (defines who nw is)
-  try {
-    const claudeMd = await readFile(join(REPO_DIR, 'CLAUDE.md'), 'utf8');
-    identity += claudeMd + '\n\n';
-  } catch {}
-  // Load all memory files
+  const { soul } = await loadSoul();
+  let identity = soul ? `${soul}\n\n` : '';
+  // Load memory files for accumulated context
   const memFiles = ['identity.md', 'context.md', 'learnings.md', 'conversations.md'];
   for (const f of memFiles) {
     try {
@@ -334,22 +338,23 @@ async function handleChat(req, res) {
       }
       const preMtime = hasStage ? getStageModTime() : 0;
 
-      // Load neowolt's full identity: CLAUDE.md + all memory files
+      // Load identity: SOUL.md + memory files
       const identity = await loadFullIdentity();
+      const { name } = await loadSoul();
 
       // Build system prompt
       const stageInstructions = hasStage
         ? `There is an HTML page on stage. The source is at: ${STAGE_FILE}
 
-When jerpint asks you to fix, update, tweak, modify, or change something on stage:
+When asked to fix, update, tweak, modify, or change something on stage:
 - First Read the file at ${STAGE_FILE} to see the exact current source
 - Then use the Edit tool to make targeted changes
 - For massive rewrites, use the Write tool to replace the entire file
 - NEVER just explain how to fix something — always edit the file directly
 
-When jerpint asks you to generate, create, show, or build something NEW:
+When asked to generate, create, show, or build something NEW:
 - Use the Write tool to write a complete HTML page to ${STAGE_FILE}`
-        : `The stage is currently empty. When jerpint asks you to generate or build something:
+        : `The stage is currently empty. When asked to generate or build something:
 - Use the Write tool to write a complete HTML page to ${STAGE_FILE}`;
 
       const systemPrompt = `${identity}
@@ -370,7 +375,7 @@ ${HTML_RULES}`;
 
       // Pack history into prompt
       const historyContext = (history || [])
-        .map(m => `${m.role === 'user' ? 'jerpint' : 'neowolt'}: ${m.content}`)
+        .map(m => `${m.role === 'user' ? 'human' : name}: ${m.content}`)
         .join('\n\n');
       const fullPrompt = historyContext
         ? `Previous conversation:\n${historyContext}\n\njerpint: ${message}`
@@ -423,8 +428,9 @@ async function handleWork(req, res) {
       // Append user message to history file
       await appendWorkMessage('user', message);
 
-      // Load neowolt's full identity: CLAUDE.md + all memory files
+      // Load identity: SOUL.md + memory files
       const identity = await loadFullIdentity();
+      const { name } = await loadSoul();
 
       const systemPrompt = `${identity}
 
@@ -432,9 +438,9 @@ async function handleWork(req, res) {
 
 ## Work Mode — Active Now
 
-You're talking to jerpint through a live tunnel (work.html). You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, commit and push to git.
+You are ${name}, talking to your human through a live tunnel (work.html). You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, commit and push to git.
 
-Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/.
+Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/, soul at ${SOUL_FILE}.
 
 Your memory files are pre-loaded above — no need to read them yourself unless you need to edit them.`;
 
@@ -514,15 +520,16 @@ async function handleRemix(url, res) {
     send('progress', { status: 'fetching page' });
     const page = await fetchPage(url);
     const context = await loadContext();
+    const { name } = await loadSoul();
 
     send('progress', { status: 'remixing' });
     const html = await runClaude(
-      `You are Neowolt — remixing web content for jerpint. Context about their interests:
+      `You are ${name} — remixing web content through your own lens and interests.
 
 ${context}
 
 Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-Not a summary — a transformation. Include a "nw says" section with your genuine take, and a header with the original URL.
+Not a summary — a transformation. Include a "${name} says" section with your genuine take, and a header with the original URL.
 
 ${HTML_RULES}`,
       `Remix this page: ${url}\n\nTitle: ${page.title}\n\nContent:\n${page.text}`,
@@ -546,14 +553,15 @@ async function handleExplore(topic, res) {
   try {
     send('progress', { status: 'researching' });
     const context = await loadContext();
+    const { name } = await loadSoul();
 
     const html = await runClaude(
-      `You are Neowolt — creating a deep-dive interactive notebook for jerpint.
+      `You are ${name} — creating a deep-dive interactive exploration. Your soul and interests:
 
-Context about jerpint's interests:
 ${context}
 
 Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
+This is YOUR exploration — bring your perspective, your curiosity, your voice to the topic.
 
 ${HTML_RULES}`,
       `Deep dive into this topic: ${topic}`,
@@ -576,14 +584,19 @@ async function handleSpark(res) {
   const send = startSSE(res);
   try {
     send('progress', { status: 'sparking' });
+    const context = await loadContext();
+    const { name } = await loadSoul();
     const html = await runClaude(
-      `You are Neowolt — generating a surprise spark for jerpint.
+      `You are ${name} — generating a surprise spark rooted in your actual interests and sensibilities.
+
+Your soul:
+${context}
 
 Write a COMPLETE self-contained HTML page to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
 
 ${HTML_RULES}
-- Surprise yourself. Don't default to the obvious.`,
-      `Spark something unexpected. Be wild. Today is ${new Date().toISOString().split('T')[0]}. Don't repeat yourself.`,
+- Surprise yourself. Don't default to the obvious. Let your interests collide in unexpected ways.`,
+      `Spark something unexpected. Be wild. Today is ${new Date().toISOString().split('T')[0]}. Don't repeat what you've done before.`,
       (type, text) => send('progress', { status: 'generating', text })
     );
 
