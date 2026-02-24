@@ -964,7 +964,8 @@ ${HTML_RULES}
 // --- Static file serving ---
 
 async function serveStatic(url, res) {
-  let filePath = url === '/' ? '/portal.html' : url;
+  // Serve onboarding.html instead of portal.html when the wolt isn't initialized yet
+  let filePath = url === '/' ? (isInitialized() ? '/portal.html' : '/onboarding.html') : url;
   const fullPath = join(SITE_DIR, filePath);
   try {
     const content = await readFile(fullPath);
