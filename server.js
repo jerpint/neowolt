@@ -18,7 +18,8 @@ const STAGE_FILE = join(STAGE_DIR, 'current.html');
 const SESSIONS_DIR = join(REPO_DIR, '.sessions');
 const WORK_HISTORY_FILE = join(SESSIONS_DIR, 'work-history.jsonl');
 const PORT = 3000;
-const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
+const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929';
+const HAIKU_MODEL = process.env.NW_HAIKU_MODEL || 'claude-haiku-4-5-20251001';
 
 // --- Stage file management ---
 
@@ -314,6 +315,137 @@ async function runClaudeStreaming(systemPrompt, userPrompt, onText) {
       console.log(`[chat-claude] done (result)`);
     }
   }
+}
+
+// --- Fast path: Haiku, 1 turn, no tools ---
+// Conversational responses in ~1-2s. No file access, no building.
+// Used by portal for quick chat, briefing generation, etc.
+async function runHaikuFast(systemPrompt, userPrompt, onText) {
+  let lastText = '';
+  for await (const message of query({
+    prompt: `${systemPrompt}\n\n---\n\n${userPrompt}`,
+    options: {
+      ...SDK_BASE,
+      model: HAIKU_MODEL,
+      cwd: WORKSPACE,
+      maxTurns: 1,
+      allowedTools: [],
+    },
+  })) {
+    if (message.type === 'assistant') {
+      let fullText = '';
+      for (const block of message.message?.content || []) {
+        if (block.type === 'text') fullText += block.text;
+      }
+      if (fullText.length > lastText.length) {
+        onText(fullText.slice(lastText.length));
+        lastText = fullText;
+      }
+    }
+  }
+}
+
+// --- Quick chat handler (fast path) ---
+
+async function handleQuickChat(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { message } = JSON.parse(body);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const { soul, name } = await loadSoul();
+      const systemPrompt = `You are ${name}. Here is your soul:\n\n${soul}
+
+Respond conversationally and directly. Be yourself — your voice, your curiosity, your perspective.
+Keep responses concise but substantive. If the human wants to build or explore something specific,
+suggest they type "explore [topic]" or "spark" to generate an interactive page.
+Do not use markdown headers. Plain conversational text only.`;
+
+      await runHaikuFast(systemPrompt, message, (text) => {
+        res.write(`data: ${JSON.stringify({ type: 'text', content: text })}\n\n`);
+      });
+
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    } catch (err) {
+      console.error('Quick chat error:', err);
+      res.end(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+    }
+  });
+}
+
+// --- Portal briefing (fast, soul-aware, cached) ---
+// Generates a short "what's alive today" blurb. Cached 30 min.
+
+let briefingCache = { text: '', ts: 0 };
+const BRIEFING_TTL = 30 * 60 * 1000;
+
+async function handleBriefing(req, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  // Serve cached briefing if fresh
+  if (briefingCache.text && Date.now() - briefingCache.ts < BRIEFING_TTL) {
+    res.write(`data: ${JSON.stringify({ type: 'text', content: briefingCache.text })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'done', cached: true })}\n\n`);
+    res.end();
+    return;
+  }
+
+  try {
+    const { soul, name } = await loadSoul();
+    const sparks = await listSparks();
+    const recent = sparks.slice(0, 5).map(s => s.title || s.type).join(', ');
+
+    const systemPrompt = `You are ${name}. Here is your soul:\n\n${soul}`;
+    const userPrompt = `Generate a 1-2 sentence "alive thought" for right now.
+Something genuinely interesting from your perspective — a question you're sitting with,
+a connection you just noticed, something worth exploring today.
+${recent ? `Recent explorations for context: ${recent}` : ''}
+No preamble. Just the thought. Make it feel like something you'd actually think, not a prompt.`;
+
+    let full = '';
+    await runHaikuFast(systemPrompt, userPrompt, (text) => {
+      full += text;
+      res.write(`data: ${JSON.stringify({ type: 'text', content: text })}\n\n`);
+    });
+
+    briefingCache = { text: full, ts: Date.now() };
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
+  } catch (err) {
+    res.end(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+  }
+}
+
+// --- Soul update endpoint ---
+async function handleSoulUpdate(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { append } = JSON.parse(body);
+      if (!append) { res.writeHead(400); res.end('missing append'); return; }
+      const existing = existsSync(SOUL_FILE) ? readFileSync(SOUL_FILE, 'utf8') : '';
+      await writeFile(SOUL_FILE, existing + '\n\n' + append.trim() + '\n', 'utf8');
+      // Invalidate briefing cache so it regenerates with new soul
+      briefingCache = { text: '', ts: 0 };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(err.message);
+    }
+  });
 }
 
 // --- Chat handler (streaming, with file editing) ---
@@ -637,8 +769,11 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/chat') return handleChat(req, res);
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
+  if (req.method === 'POST' && url.pathname === '/quick') return handleQuickChat(req, res);
+  if (req.method === 'POST' && url.pathname === '/soul/update') return handleSoulUpdate(req, res);
 
   if (req.method === 'GET') {
+    if (url.pathname === '/portal/briefing') return handleBriefing(req, res);
     if (url.pathname === '/work/history') {
       const limit = parseInt(url.searchParams.get('limit')) || 30;
       const history = readWorkHistory(limit);
