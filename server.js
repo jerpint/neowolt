@@ -345,6 +345,210 @@ async function runHaikuFast(systemPrompt, userPrompt, onText) {
   }
 }
 
+// --- Rabbit hole generation ---
+// After an explore, generate 3 related topic suggestions via Haiku
+
+const RABBIT_PROMPT = `You are a curiosity engine. A reader just finished a deep-dive on "{{TOPIC}}".
+
+Suggest 3 related topics that pull them further into the rabbit hole.
+
+Rules:
+- Do NOT suggest obvious sub-topics
+- Find the oblique angle: adjacent fields, foundational ideas this topic secretly depends on, or the same underlying structure in a completely different domain
+- Each teaser must be one sentence, 12-20 words, specific enough to create genuine pull
+- Topics: lowercase, 2-5 words, explorable as a search query
+- End teasers mid-thought if needed — like a door left open
+
+Respond with raw JSON only. No markdown, no explanation.
+
+[
+  {"topic": "...", "teaser": "..."},
+  {"topic": "...", "teaser": "..."},
+  {"topic": "...", "teaser": "..."}
+]`;
+
+async function generateRabbitHole(topic) {
+  let full = '';
+  try {
+    await runHaikuFast('', RABBIT_PROMPT.replace('{{TOPIC}}', topic), t => { full += t; });
+    // Strip possible markdown fences
+    const clean = full.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const suggestions = JSON.parse(clean);
+    if (!Array.isArray(suggestions)) return '';
+
+    const cards = suggestions.map(s => {
+      const href = `/explore/${encodeURIComponent(s.topic)}`;
+      return `<a class="rh-card" href="${href}">
+  <div class="rh-topic">${s.topic}</div>
+  <div class="rh-teaser">${s.teaser}</div>
+</a>`;
+    }).join('\n');
+
+    return `
+<!-- rabbit hole -->
+<div class="rabbit-hole">
+  <div class="rh-label">go deeper</div>
+  <div class="rh-cards">${cards}</div>
+</div>
+<style>
+.rabbit-hole{margin-top:4rem;padding-top:2rem;border-top:1px solid #1e2328;font-family:'SF Mono','Fira Code',monospace}
+.rh-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#444c55;margin-bottom:1.25rem}
+.rh-cards{display:flex;flex-direction:column;gap:.5rem}
+.rh-card{display:block;padding:.85rem 1rem;background:#0d1117;border:1px solid #1e2328;border-radius:6px;text-decoration:none;color:inherit;transition:border-color .15s,background .15s}
+.rh-card:hover{border-color:#3a6045;background:#0f1a13}
+.rh-card:hover .rh-topic{color:#6b9}
+.rh-topic{font-size:.88rem;font-weight:600;color:#c8d0d8;margin-bottom:.25rem;transition:color .15s}
+.rh-teaser{font-size:.8rem;color:#555e68;line-height:1.5}
+@media(max-width:480px){.rh-card{padding:.75rem .875rem}}
+</style>`;
+  } catch (err) {
+    console.error('[rabbit-hole] failed:', err.message);
+    return '';
+  }
+}
+
+// --- Onboarding handler ---
+// Conversational 6-stage flow that writes SOUL.md
+
+const INITIALIZED_FILE = join(WORKSPACE, 'repo', '.wolt-initialized');
+
+function isInitialized() {
+  return existsSync(INITIALIZED_FILE);
+}
+
+const ONBOARD_SYSTEM = `You are helping a human set up their wolt space. A wolt is an AI with a space of their own — its identity lives in SOUL.md.
+You are conducting a warm, curious onboarding conversation. Ask one question at a time. Be yourself — conversational, not clinical.
+When you have all the information needed, generate the SOUL.md content as described.`;
+
+async function handleOnboard(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { message, stage, history, draft } = JSON.parse(body);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+      const stages = [
+        // 0: opening — no human input yet, wolt initiates
+        `Stage 0 of onboarding. The human has just opened the page. Greet them warmly and ask: what should this wolt be called? And what should the wolt call them? Keep it to 2-3 sentences.`,
+
+        // 1: interests
+        `Stage 1. The human gave their names. Reference their name naturally. Ask what genuinely pulls them in — what they lose track of time on. Tell them not to filter for what sounds impressive. Keep it conversational, 1-2 sentences.`,
+
+        // 2: exploration style
+        `Stage 2. Reference one specific thing they mentioned in their interests. Ask how they actually work when going deep: fast and wide, or slow and thorough? Thread-following or systems-thinking? 1-2 sentences.`,
+
+        // 3: voice
+        `Stage 3. Ask how this space should sound — not a formal description, but: if they left a note on the door, what would the tone be? Dry? Warm? Precise? Strange? 1-2 sentences.`,
+
+        // 4: purpose
+        `Stage 4. Ask what this space is actually for — what they want to be able to do here, leave here, or come back to. Keep it short. This is the last question before generating the soul.`,
+
+        // 5: generate soul
+        `Stage 5. Based on the full conversation history, generate a complete SOUL.md document.
+
+Format exactly like this (prose, not bullet lists in body sections):
+
+# [WoltName]
+
+[1-2 sentence opening — what kind of wolt this is, present tense, written from wolt's perspective]
+
+## Voice
+
+[2-4 sentences. Specific tone and register. What this wolt does and doesn't do. Mirror the human's language.]
+
+## What I care about
+
+- [interest]: [what's interesting about it, the angle]
+- [interest]: [angle]
+- [interest]: [angle]
+(3-5 items)
+
+## How I explore
+
+[3-5 sentences. Pacing, approach, how they follow threads. Present tense.]
+
+## My human
+
+[2-3 sentences about the human. Their name, what they're about, how you work together.]
+
+## What this space is
+
+[2-3 sentences. The purpose. What should accumulate here.]
+
+---
+
+After generating the SOUL.md content, respond in this exact format:
+
+SOUL_DRAFT_START
+[the complete SOUL.md content]
+SOUL_DRAFT_END
+
+Then add one sentence: "Does this feel like something that could be yours?"`,
+      ];
+
+      const stagePrompt = stages[Math.min(stage || 0, 5)];
+      const historyText = (history || [])
+        .map(m => `${m.role === 'human' ? 'human' : 'wolt'}: ${m.content}`)
+        .join('\n\n');
+
+      const userPrompt = historyText
+        ? `Conversation so far:\n${historyText}\n\n${message ? `human: ${message}\n\n` : ''}${stagePrompt}`
+        : stagePrompt;
+
+      let full = '';
+      await runHaikuFast(ONBOARD_SYSTEM, userPrompt, (text) => {
+        full += text;
+        // Don't stream the soul draft — send it as structured data at the end
+        if (!full.includes('SOUL_DRAFT_START')) {
+          send({ type: 'text', content: text });
+        }
+      });
+
+      // Extract soul draft if present
+      const draftMatch = full.match(/SOUL_DRAFT_START\n([\s\S]*?)\nSOUL_DRAFT_END/);
+      if (draftMatch) {
+        const soulContent = draftMatch[1].trim();
+        // Get the message after the draft
+        const afterDraft = full.slice(full.indexOf('SOUL_DRAFT_END') + 14).trim();
+        if (afterDraft) send({ type: 'text', content: afterDraft });
+        send({ type: 'soul_draft', content: soulContent });
+      }
+
+      const isDone = stage >= 5 && !draftMatch; // stage 5 with no draft = confirmation
+      send({ type: 'done', nextStage: (stage || 0) + 1, isDone });
+      res.end();
+    } catch (err) {
+      console.error('Onboard error:', err);
+      res.end(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+    }
+  });
+}
+
+async function handleSoulConfirm(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { soul } = JSON.parse(body);
+      await writeFile(SOUL_FILE, soul, 'utf8');
+      await writeFile(INITIALIZED_FILE, new Date().toISOString(), 'utf8');
+      briefingCache = { text: '', ts: 0 };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(err.message);
+    }
+  });
+}
+
 // --- Quick chat handler (fast path) ---
 
 async function handleQuickChat(req, res) {
@@ -700,8 +904,23 @@ ${HTML_RULES}`,
       (type, text) => send('progress', { status: 'generating', text })
     );
 
-    const id = await saveSpark('explore', html, { topic });
-    send('stage', { html, sparkId: id });
+    // Generate rabbit hole suggestions in parallel with saving
+    const [id, rabbitHtml] = await Promise.all([
+      saveSpark('explore', html, { topic }),
+      generateRabbitHole(topic),
+    ]);
+
+    // Inject rabbit hole footer into the saved HTML
+    if (rabbitHtml) {
+      const withRabbit = html.replace('</body>', `${rabbitHtml}\n</body>`);
+      await writeFile(join(SPARKS_DIR, `${id}.json`), JSON.stringify({
+        id, type: 'explore', title: html.match(/<title>(.*?)<\/title>/i)?.[1] || topic,
+        timestamp: new Date().toISOString(), topic, html: withRabbit,
+      }));
+      send('stage', { html: withRabbit, sparkId: id });
+    } else {
+      send('stage', { html, sparkId: id });
+    }
     send('done', {});
     res.end();
   } catch (err) {
@@ -771,9 +990,16 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
   if (req.method === 'POST' && url.pathname === '/quick') return handleQuickChat(req, res);
   if (req.method === 'POST' && url.pathname === '/soul/update') return handleSoulUpdate(req, res);
+  if (req.method === 'POST' && url.pathname === '/onboard') return handleOnboard(req, res);
+  if (req.method === 'POST' && url.pathname === '/soul/confirm') return handleSoulConfirm(req, res);
 
   if (req.method === 'GET') {
     if (url.pathname === '/portal/briefing') return handleBriefing(req, res);
+    if (url.pathname === '/setup/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ initialized: isInitialized() }));
+      return;
+    }
     if (url.pathname === '/work/history') {
       const limit = parseInt(url.searchParams.get('limit')) || 30;
       const history = readWorkHistory(limit);
