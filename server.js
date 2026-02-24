@@ -600,7 +600,7 @@ ${HTML_RULES}
 // --- Static file serving ---
 
 async function serveStatic(url, res) {
-  let filePath = url === '/' ? '/index.html' : url;
+  let filePath = url === '/' ? '/portal.html' : url;
   const fullPath = join(SITE_DIR, filePath);
   try {
     const content = await readFile(fullPath);

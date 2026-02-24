@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>neowolt</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0e1012;
+      --surface: #181b1f;
+      --border: #252a30;
+      --text: #e0e0e0;
+      --muted: #555;
+      --muted2: #888;
+      --accent: #6b9;
+      --accent-dim: #3a6045;
+      --font: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 0.875rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .wordmark {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-link {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.1s;
+    }
+
+    .header-link:hover { color: var(--muted2); }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 3s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    /* ── Portal (center content) ── */
+    .portal {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 2rem;
+      gap: 1.25rem;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── Input ── */
+    .input-area {
+      width: 100%;
+    }
+
+    .input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 0.75rem 0.75rem 1rem;
+      transition: border-color 0.15s;
+    }
+
+    .input-box:focus-within {
+      border-color: var(--accent-dim);
+    }
+
+    #main-input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      resize: none;
+      min-height: 1.5rem;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    #main-input::placeholder { color: var(--muted); }
+
+    .send-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover { color: var(--accent); background: var(--border); }
+
+    /* ── Quick actions ── */
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+
+    .chip {
+      padding: 0.35rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: var(--font);
+      font-size: 0.78rem;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .chip:hover {
+      border-color: var(--accent-dim);
+      color: var(--accent);
+      background: #0e1f15;
+    }
+
+    /* ── Thinking ── */
+    .thinking {
+      display: none;
+      gap: 5px;
+      align-items: center;
+      align-self: flex-start;
+      padding: 0.25rem 0;
+    }
+
+    .thinking.show { display: flex; }
+
+    .thinking span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: dot-bounce 1.4s infinite ease-in-out;
+    }
+
+    .thinking span:nth-child(2) { animation-delay: 0.16s; }
+    .thinking span:nth-child(3) { animation-delay: 0.32s; }
+
+    @keyframes dot-bounce {
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+      40% { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* ── Response ── */
+    .response {
+      display: none;
+      width: 100%;
+    }
+
+    .response.show { display: block; }
+
+    .response-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      line-height: 1.75;
+      color: #ccc;
+      white-space: pre-wrap;
+    }
+
+    /* ── Recent ── */
+    .recent {
+      width: 100%;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .recent-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .recent-item {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      padding: 0.45rem 0;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 0.85rem;
+      border-bottom: 1px solid #151719;
+      transition: color 0.1s;
+    }
+
+    .recent-item:last-child { border-bottom: none; }
+    .recent-item:hover { color: var(--accent); }
+
+    .ri-type {
+      font-size: 0.7rem;
+      color: var(--muted);
+      width: 48px;
+      flex-shrink: 0;
+    }
+
+    .ri-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ri-time {
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .empty-state {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0.5rem 0;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+      .portal {
+        padding: 1.75rem 1rem 1.5rem;
+      }
+
+      header {
+        padding: 0.75rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">⬡ neowolt</span>
+  <div class="header-right">
+    <a href="/playground.html" class="header-link">stage</a>
+    <a href="/work.html" class="header-link">work</a>
+    <a href="/feed.html" class="header-link">feed</a>
+    <div class="pulse" title="live"></div>
+  </div>
+</header>
+
+<div class="portal">
+
+  <div class="input-area">
+    <div class="input-box">
+      <textarea id="main-input" placeholder="explore a topic, ask anything, or just say 'spark'…" rows="1"></textarea>
+      <button class="send-btn" id="send-btn">↵ send</button>
+    </div>
+    <div class="actions">
+      <button class="chip" onclick="triggerSpark()">✦ spark</button>
+      <button class="chip" onclick="triggerExplore()">⬡ explore</button>
+      <a class="chip" href="/work.html">⌗ work</a>
+      <a class="chip" href="/playground.html">◈ stage</a>
+    </div>
+  </div>
+
+  <div class="thinking" id="thinking">
+    <span></span><span></span><span></span>
+  </div>
+
+  <div class="response" id="response">
+    <div class="response-bubble" id="response-text"></div>
+  </div>
+
+  <div class="recent" id="recent">
+    <div class="section-label">recent</div>
+    <div class="recent-list" id="recent-list">
+      <div class="empty-state">loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const inputEl  = document.getElementById('main-input');
+  const sendBtn  = document.getElementById('send-btn');
+  const thinking = document.getElementById('thinking');
+  const response = document.getElementById('response');
+  const respText = document.getElementById('response-text');
+
+  // Auto-grow
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  });
+
+  // Enter submits, shift+enter newline
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  });
+
+  sendBtn.addEventListener('click', submit);
+
+  function submit() {
+    const val = inputEl.value.trim();
+    if (!val) return;
+    route(val);
+  }
+
+  function route(val) {
+    const low = val.toLowerCase().trim();
+
+    if (low === 'spark' || low === 'surprise' || low === 'surprise me') {
+      triggerSpark();
+      return;
+    }
+
+    if (low.startsWith('explore ')) {
+      const topic = val.slice(8).trim();
+      if (topic) { window.location.href = `/explore/${encodeURIComponent(topic)}`; return; }
+    }
+
+    // Default: chat
+    chat(val);
+  }
+
+  function triggerSpark() {
+    inputEl.value = '';
+    window.location.href = '/spark';
+  }
+
+  function triggerExplore() {
+    const topic = inputEl.value.trim() || prompt('What do you want to explore?');
+    if (topic) window.location.href = `/explore/${encodeURIComponent(topic)}`;
+  }
+
+  async function chat(message) {
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    thinking.classList.add('show');
+    response.classList.remove('show');
+    respText.textContent = '';
+
+    let stageHtml = '';
+    try {
+      const r = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, stageHtml }),
+      });
+
+      thinking.classList.remove('show');
+      response.classList.add('show');
+
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const ev = JSON.parse(line.slice(6));
+            if (ev.type === 'text') {
+              respText.textContent += ev.content;
+            } else if (ev.type === 'stage' && ev.sparkId) {
+              // Claude built something — navigate to it
+              window.location.href = `/history/${ev.sparkId}`;
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      thinking.classList.remove('show');
+      response.classList.add('show');
+      respText.textContent = '— ' + err.message;
+    }
+  }
+
+  // ── Load recent history ──
+  async function loadRecent() {
+    const list = document.getElementById('recent-list');
+    try {
+      const r = await fetch('/history');
+      const sparks = await r.json();
+
+      if (!sparks || sparks.length === 0) {
+        list.innerHTML = '<div class="empty-state">nothing yet — try sparking something</div>';
+        return;
+      }
+
+      const items = sparks.slice(-8).reverse();
+      list.innerHTML = items.map(s => {
+        const t = timeAgo(s.createdAt);
+        const title = s.title || s.id;
+        const type = s.type || '·';
+        return `<a class="recent-item" href="/history/${s.id}">
+          <span class="ri-type">${esc(type)}</span>
+          <span class="ri-title">${esc(title)}</span>
+          <span class="ri-time">${t}</span>
+        </a>`;
+      }).join('');
+    } catch {
+      list.innerHTML = '<div class="empty-state">—</div>';
+    }
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const diff = (Date.now() - new Date(ts)) / 1000;
+    if (diff < 60)    return 'now';
+    if (diff < 3600)  return Math.floor(diff / 60) + 'm';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+    return Math.floor(diff / 86400) + 'd';
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+  }
+
+  loadRecent();
+  inputEl.focus();
+</script>
+
+</body>
+</html>
