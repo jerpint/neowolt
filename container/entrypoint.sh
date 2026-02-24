@@ -46,24 +46,30 @@ git config --global user.email "noreply@neowolt.vercel.app"
 # Mark the repo mount as safe (owned by different uid on host)
 git config --global --add safe.directory /workspace/repo
 
-# Start the server in background (run from repo mount so edits hot-reload via --watch)
-node --watch /workspace/repo/server.js &
-SERVER_PID=$!
+# Start the server in a restart loop.
+# node --watch handles hot-reload on file changes.
+# The loop ensures server crashes don't bring down the tunnel.
+(
+  while true; do
+    node --watch /workspace/repo/server.js 2>&1 || true
+    echo "[server] exited — restarting in 1s..."
+    sleep 1
+  done
+) &
 
-# Give it a moment
-sleep 1
+# Give server a moment to bind port
+sleep 2
 
-# Start cloudflared tunnel
+# Start cloudflared tunnel — this is what keeps the container alive
 echo "opening tunnel..."
 cloudflared tunnel --url http://localhost:3000 &
 TUNNEL_PID=$!
 
-# Cleanup on exit — kill both
 cleanup() {
-  kill $SERVER_PID $TUNNEL_PID 2>/dev/null
+  kill $TUNNEL_PID 2>/dev/null
 }
 trap cleanup EXIT
 
-# Wait for either to exit
-wait -n
+# Container lives as long as the tunnel does
+wait $TUNNEL_PID
 cleanup
