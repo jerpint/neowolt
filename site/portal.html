@@ -32,12 +32,13 @@
 
     /* ── Header ── */
     header {
-      padding: 0.6rem 1.25rem;
+      padding: 0.5rem 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      gap: 0.75rem;
     }
 
     .wordmark {
@@ -45,6 +46,7 @@
       font-weight: 600;
       color: var(--accent);
       text-decoration: none;
+      flex-shrink: 0;
     }
 
     .mode-toggle {
@@ -56,7 +58,7 @@
     }
 
     .mode-btn {
-      padding: 0.2rem 0.8rem;
+      padding: 0.2rem 0.75rem;
       border-radius: 100px;
       font-size: 0.7rem;
       border: none;
@@ -66,7 +68,6 @@
       font-family: var(--font);
       transition: all 0.15s;
     }
-
     .mode-btn.active {
       background: var(--accent-dim);
       color: var(--accent);
@@ -75,11 +76,11 @@
     .header-right {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
     }
 
     .nav-link {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--muted2);
       text-decoration: none;
       transition: color 0.1s;
@@ -97,72 +98,167 @@
       50% { opacity: 0.2; }
     }
 
-    /* ── Main layout ── */
-    #main {
+    /* ── Main panels ── */
+    #panels {
       flex: 1;
       display: flex;
-      flex-direction: column;
-      max-width: 720px;
-      width: 100%;
-      margin: 0 auto;
       overflow: hidden;
     }
 
-    /* ── Messages ── */
+    /* ── Stage panel ── */
+    #stage-panel {
+      flex: 3;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+      transition: flex 0.2s;
+    }
+
+    /* Work mode: hide stage, chat goes full width */
+    #panels.work-mode #stage-panel { display: none; }
+
+    #stage {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: var(--bg);
+    }
+
+    /* Loading / idle overlay */
+    #stage-overlay {
+      position: absolute;
+      inset: 0;
+      bottom: 32px; /* above stage-bar */
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.4s;
+    }
+    #stage-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #wave-canvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    #stage-status {
+      position: relative;
+      font-size: 0.72rem;
+      color: var(--muted2);
+      letter-spacing: 0.08em;
+      z-index: 1;
+      animation: status-in 0.35s ease;
+    }
+    @keyframes status-in {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* Stage bar */
+    #stage-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0.85rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      height: 32px;
+    }
+
+    #stage-title {
+      font-size: 0.68rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 65%;
+    }
+
+    .stage-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    .stage-action {
+      font-size: 0.66rem;
+      color: var(--muted2);
+      text-decoration: none;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font);
+      padding: 0;
+      transition: color 0.1s;
+    }
+    .stage-action:hover { color: var(--accent); }
+
+    /* ── Chat panel ── */
+    #chat-panel {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 260px;
+      max-width: 420px;
+    }
+    #panels.work-mode #chat-panel {
+      flex: 1;
+      max-width: 100%;
+    }
+
     #messages {
       flex: 1;
       overflow-y: auto;
-      padding: 1.25rem 1.5rem 0.75rem;
+      padding: 1rem 1.25rem 0.5rem;
     }
 
-    .msg { margin-bottom: 1.25rem; }
-
+    .msg { margin-bottom: 1.1rem; }
     .msg-label {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
       display: block;
-      margin-bottom: 0.2rem;
+      margin-bottom: 0.18rem;
     }
-
     .msg.user .msg-text {
       color: var(--accent);
-      font-size: 0.875rem;
+      font-size: 0.83rem;
     }
-
     .msg.assistant .msg-text {
       color: #bcc4cc;
-      font-size: 0.875rem;
+      font-size: 0.83rem;
       line-height: 1.75;
     }
-
     .msg-text {
       white-space: pre-wrap;
       word-break: break-word;
     }
-
     .msg-text code {
       background: var(--surface2);
-      padding: 0.15em 0.4em;
+      padding: 0.12em 0.35em;
       border-radius: 3px;
       font-family: var(--font);
-      font-size: 0.85em;
+      font-size: 0.82em;
     }
-
     .msg-text pre {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.75rem 1rem;
-      margin: 0.5rem 0;
+      padding: 0.6rem 0.85rem;
+      margin: 0.4rem 0;
       overflow-x: auto;
-      font-size: 0.8rem;
+      font-size: 0.76rem;
     }
 
-    .thinking-dots {
-      display: flex; gap: 4px; padding: 0.35rem 0;
-    }
+    .thinking-dots { display: flex; gap: 4px; padding: 0.3rem 0; }
     .thinking-dots span {
       width: 5px; height: 5px;
       border-radius: 50%;
@@ -172,36 +268,49 @@
     .thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
     .thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes dot-bounce {
-      0%,80%,100% { transform: scale(0.7); opacity: 0.4; }
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
       40% { transform: scale(1.2); opacity: 1; }
     }
+
+    /* Spark preview link in chat */
+    .spark-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--accent);
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: none;
+      margin-top: 0.25rem;
+    }
+    .spark-link:hover { text-decoration: underline; }
 
     /* ── Input area ── */
     #input-area {
       flex-shrink: 0;
-      padding: 0.75rem 1.5rem 1rem;
+      padding: 0.6rem 1rem 0.75rem;
       border-top: 1px solid var(--border);
     }
 
     #input-row {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.4rem;
       align-items: flex-end;
     }
 
     #input {
       flex: 1;
       font-family: var(--font);
-      font-size: 0.9rem;
-      padding: 0.7rem 1rem;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.85rem;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
       outline: none;
       resize: none;
-      min-height: 2.6rem;
-      max-height: 10rem;
+      min-height: 2.4rem;
+      max-height: 8rem;
       overflow-y: auto;
       line-height: 1.5;
       transition: border-color 0.15s;
@@ -212,7 +321,7 @@
     #send-btn {
       font-family: var(--font);
       font-size: 0.8rem;
-      padding: 0.65rem 1.1rem;
+      padding: 0.55rem 0.9rem;
       background: var(--accent-dim);
       border: 1px solid var(--accent);
       border-radius: 8px;
@@ -226,34 +335,37 @@
     #send-btn:hover { background: #3d6050; }
     #send-btn:disabled { opacity: 0.3; cursor: default; }
 
-    /* ── Chips ── */
     #chips {
       display: flex;
-      gap: 0.4rem;
+      gap: 0.35rem;
       flex-wrap: wrap;
-      margin-top: 0.55rem;
+      margin-top: 0.45rem;
     }
 
     .chip {
-      padding: 0.25rem 0.65rem;
+      padding: 0.22rem 0.6rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 100px;
       font-family: var(--font);
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--muted2);
       cursor: pointer;
       transition: all 0.15s;
-      text-decoration: none;
       white-space: nowrap;
     }
     .chip:hover { border-color: var(--accent-dim); color: var(--accent); }
 
     /* ── Mobile ── */
-    @media (max-width: 480px) {
-      #messages { padding: 1rem 1rem 0.5rem; }
-      #input-area { padding: 0.6rem 1rem 0.75rem; }
-      header { padding: 0.5rem 1rem; }
+    @media (max-width: 640px) {
+      #panels { flex-direction: column; }
+      #stage-panel {
+        flex: none;
+        height: 44vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      #chat-panel { flex: 1; max-width: 100%; }
     }
   </style>
 </head>
@@ -267,42 +379,188 @@
   </div>
   <div class="header-right">
     <a href="/feed.html" class="nav-link">feed</a>
-    <a href="/playground.html" class="nav-link">stage</a>
     <div class="pulse" title="live"></div>
   </div>
 </header>
 
-<div id="main">
-  <div id="messages"></div>
-  <div id="input-area">
-    <div id="input-row">
-      <textarea id="input" rows="1" placeholder="ask anything…"></textarea>
-      <button id="send-btn">↵</button>
+<div id="panels">
+
+  <!-- Stage panel: the generative canvas -->
+  <div id="stage-panel">
+    <iframe id="stage" sandbox="allow-scripts allow-same-origin" title="stage"></iframe>
+
+    <!-- Overlay: shows wave animation when idle or generating -->
+    <div id="stage-overlay">
+      <canvas id="wave-canvas"></canvas>
+      <div id="stage-status">—</div>
     </div>
-    <div id="chips">
-      <button class="chip" id="spark-chip">✦ spark</button>
-      <button class="chip" id="explore-chip">⬡ explore</button>
-      <a class="chip" href="/playground.html">◈ stage</a>
+
+    <div id="stage-bar">
+      <span id="stage-title">nothing on stage</span>
+      <div class="stage-actions">
+        <button class="stage-action" id="fullscreen-btn" style="display:none">↗ open</button>
+        <button class="stage-action" id="history-bar-btn">history</button>
+      </div>
     </div>
   </div>
+
+  <!-- Chat panel -->
+  <div id="chat-panel">
+    <div id="messages"></div>
+    <div id="input-area">
+      <div id="input-row">
+        <textarea id="input" rows="1" placeholder="ask anything…"></textarea>
+        <button id="send-btn">↵</button>
+      </div>
+      <div id="chips">
+        <button class="chip" id="spark-chip">✦ spark</button>
+        <button class="chip" id="explore-chip">⬡ explore</button>
+        <button class="chip" id="history-chip">◈ history</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-  const messagesEl = document.getElementById('messages');
-  const inputEl    = document.getElementById('input');
-  const sendBtn    = document.getElementById('send-btn');
+  // ── Elements ──
+  const messagesEl   = document.getElementById('messages');
+  const inputEl      = document.getElementById('input');
+  const sendBtn      = document.getElementById('send-btn');
+  const panelsEl     = document.getElementById('panels');
+  const stageEl      = document.getElementById('stage');
+  const overlayEl    = document.getElementById('stage-overlay');
+  const statusEl     = document.getElementById('stage-status');
+  const stageTitleEl = document.getElementById('stage-title');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const waveCanvas   = document.getElementById('wave-canvas');
+  const waveCtx      = waveCanvas.getContext('2d');
 
   // ── State ──
   let mode = 'chat';
   const threads = { chat: [], work: [] };
   const inited  = { chat: false, work: false };
-  let sending = false;
+  let sending   = false;
+  let generating = false;
   let activeReader = null;
+  let currentSparkId = null;
+  let currentSparkTitle = null;
 
   const placeholders = {
     chat: 'ask anything…',
-    work: 'let\'s work on something…',
+    work: "let's work on something…",
   };
+
+  // ── Wave animation ──
+  let waveAnimId = null;
+  let waveT = 0;
+  let lastFrameMs = 0;
+
+  function resizeWave() {
+    const panel = document.getElementById('stage-panel');
+    waveCanvas.width  = panel.offsetWidth;
+    waveCanvas.height = Math.max(panel.offsetHeight - 32, 100);
+  }
+
+  function drawWave(ts) {
+    if (ts - lastFrameMs < 48) { // ~20 fps cap
+      waveAnimId = requestAnimationFrame(drawWave);
+      return;
+    }
+    lastFrameMs = ts;
+    waveT++;
+
+    const W = waveCanvas.width, H = waveCanvas.height;
+    waveCtx.clearRect(0, 0, W, H);
+
+    const step = 42;
+    const cols = Math.floor(W / step);
+    const rows = Math.floor(H / step);
+    const cx = cols / 2, cy = rows / 2;
+
+    for (let r = 0; r <= rows; r++) {
+      for (let c = 0; c <= cols; c++) {
+        const dist = Math.sqrt((c - cx) ** 2 + (r - cy) ** 2);
+        const wave = Math.sin(dist * 0.55 - waveT * 0.035) * 0.5 + 0.5;
+        const size  = wave * 2.8 + 0.4;
+        const alpha = wave * 0.55 + 0.08;
+        waveCtx.fillStyle = `rgba(102,187,153,${alpha.toFixed(2)})`;
+        waveCtx.beginPath();
+        waveCtx.arc(c * step, r * step, size, 0, Math.PI * 2);
+        waveCtx.fill();
+      }
+    }
+
+    waveAnimId = requestAnimationFrame(drawWave);
+  }
+
+  function startWave() {
+    if (waveAnimId) return;
+    resizeWave();
+    waveAnimId = requestAnimationFrame(drawWave);
+  }
+
+  function stopWave() {
+    if (waveAnimId) { cancelAnimationFrame(waveAnimId); waveAnimId = null; }
+  }
+
+  window.addEventListener('resize', () => { if (waveAnimId) resizeWave(); });
+
+  // ── Stage overlay ──
+  const STATUS_CYCLE = [
+    'sparking neurons…',
+    'following a thread…',
+    'making connections…',
+    'weaving something…',
+    'going deeper…',
+    'assembling pieces…',
+    'crossing wires…',
+  ];
+  let statusIdx = 0;
+  let statusTimer = null;
+
+  function setStatus(text) {
+    statusEl.style.animation = 'none';
+    statusEl.offsetHeight; // reflow
+    statusEl.style.animation = '';
+    statusEl.textContent = text;
+  }
+
+  function showOverlay(cycle) {
+    overlayEl.classList.remove('hidden');
+    startWave();
+    if (cycle) {
+      statusIdx = 0;
+      setStatus(STATUS_CYCLE[0]);
+      statusTimer = setInterval(() => {
+        statusIdx = (statusIdx + 1) % STATUS_CYCLE.length;
+        setStatus(STATUS_CYCLE[statusIdx]);
+      }, 2200);
+    }
+  }
+
+  function hideOverlay() {
+    if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+    overlayEl.classList.add('hidden');
+    // Keep wave running in background while hidden — it's cheap and avoids restart stutter
+  }
+
+  // Start idle wave immediately
+  showOverlay(false);
+  setStatus('—');
+
+  // ── Stage loading ──
+  function loadIntoStage(html, sparkId, title) {
+    currentSparkId   = sparkId || null;
+    currentSparkTitle = title || sparkId || 'untitled';
+    stageEl.srcdoc   = html;
+    stageTitleEl.textContent = currentSparkTitle;
+    if (sparkId) {
+      fullscreenBtn.style.display = 'inline';
+      fullscreenBtn.onclick = () => window.open(`/history/${sparkId}`, '_blank');
+    }
+    hideOverlay();
+  }
 
   // ── Mode switching ──
   document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -318,12 +576,11 @@
     document.querySelectorAll('.mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.mode === mode)
     );
+    panelsEl.classList.toggle('work-mode', mode === 'work');
 
-    // Cancel any active stream
-    if (activeReader) { activeReader.cancel(); activeReader = null; }
-    sending = false;
+    if (activeReader) { try { activeReader.cancel(); } catch {} activeReader = null; }
+    sending = false; generating = false;
     sendBtn.disabled = false;
-
     inputEl.placeholder = placeholders[mode];
     renderThread();
 
@@ -350,13 +607,13 @@
     div.innerHTML = `<span class="msg-label">${label}</span><span class="msg-text"></span>`;
     const span = div.querySelector('.msg-text');
     if (html) span.innerHTML = html;
-    else span.textContent = content;
+    else span.textContent = content || '';
     messagesEl.appendChild(div);
     return div;
   }
 
   function addMsg(role, content, html) {
-    threads[mode].push({ role, content, html: html || null });
+    threads[mode].push({ role, content: content || '', html: html || null });
     return renderMsg(role, content, html);
   }
 
@@ -366,16 +623,15 @@
 
   // ── Markdown (work mode) ──
   function fmt(text) {
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) =>
-      `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`
-    );
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g,
+      (_, _l, code) => `<pre><code>${code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`);
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/`(.+?)`/g, '<code>$1</code>');
     text = text.replace(/\n/g, '<br>');
     return text;
   }
 
-  // ── Portal history (chat mode init) ──
+  // ── Portal history ──
   async function loadPortalHistory() {
     try {
       const res = await fetch('/portal/history?limit=40');
@@ -386,7 +642,7 @@
     } catch {}
   }
 
-  // ── Briefing (fresh greeting every open) ──
+  // ── Briefing ──
   async function loadBriefing() {
     const div = document.createElement('div');
     div.className = 'msg assistant';
@@ -404,8 +660,7 @@
         const { done, value } = await reader.read();
         if (done) break;
         buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
+        const lines = buf.split('\n'); buf = lines.pop();
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
@@ -419,7 +674,6 @@
           } catch {}
         }
       }
-      // Don't push briefing to threads — it's not part of the saved history
     } catch {
       span.textContent = 'hey.';
     }
@@ -432,11 +686,11 @@
       const history = await res.json();
 
       if (!history || history.length === 0) {
-        addMsg('assistant', 'work mode. full repo access, can commit and push. what are we working on?');
+        addMsg('assistant', 'work mode — full repo access. what are we building?');
         return;
       }
 
-      // Deduplicate consecutive assistant messages (keep longest)
+      // Deduplicate consecutive assistant turns (keep longest)
       const deduped = [];
       let group = [];
       for (const msg of history) {
@@ -444,21 +698,111 @@
           group.push(msg);
         } else {
           if (group.length) {
-            deduped.push(group.reduce((a, b) => a.content.length > b.content.length ? a : b));
+            deduped.push(group.reduce((a,b) => a.content.length > b.content.length ? a : b));
             group = [];
           }
           deduped.push(msg);
         }
       }
-      if (group.length) deduped.push(group.reduce((a, b) => a.content.length > b.content.length ? a : b));
+      if (group.length) deduped.push(group.reduce((a,b) => a.content.length > b.content.length ? a : b));
 
       deduped.forEach(m => {
         const html = m.role === 'assistant' ? fmt(m.content) : null;
         addMsg(m.role, m.content, html);
       });
     } catch {
-      addMsg('assistant', 'work mode. full repo access, can commit and push. what are we working on?');
+      addMsg('assistant', 'work mode — full repo access. what are we building?');
     }
+  }
+
+  // ── SSE helper ──
+  async function readSSE(r, onEvent) {
+    const reader = r.body.getReader();
+    activeReader = reader;
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try { onEvent(JSON.parse(line.slice(6))); } catch {}
+      }
+    }
+    activeReader = null;
+  }
+
+  // ── Generate spark (SSE → stage) ──
+  async function generateSpark() {
+    if (generating) return;
+    generating = true;
+
+    addMsg('user', '✦ spark');
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.innerHTML = `<span class="msg-label">nw</span><span class="msg-text"><div class="thinking-dots"><span></span><span></span><span></span></div></span>`;
+    messagesEl.appendChild(div); scrollBottom();
+    const span = div.querySelector('.msg-text');
+
+    showOverlay(true);
+
+    try {
+      const r = await fetch('/spark');
+      await readSSE(r, ev => {
+        if (ev.type === 'stage' && ev.html) {
+          const title = ev.html.match(/<title>(.*?)<\/title>/i)?.[1] || 'spark';
+          loadIntoStage(ev.html, ev.sparkId, title);
+          span.innerHTML = `✦ <span class="spark-link" onclick="window.open('/history/${ev.sparkId}','_blank')">${title}</span> — on stage`;
+          const idx = threads[mode].length - 1;
+          if (idx >= 0) threads[mode][idx] = { role: 'assistant', content: `✦ ${title} — on stage`, html: null };
+          scrollBottom();
+        }
+      });
+    } catch (err) {
+      span.textContent = '— ' + err.message;
+      showOverlay(false); setStatus('—');
+    }
+
+    generating = false;
+    scrollBottom();
+  }
+
+  // ── Generate explore (SSE → stage) ──
+  async function generateExplore(topic) {
+    if (generating) return;
+    generating = true;
+
+    addMsg('user', `⬡ explore: ${topic}`);
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.innerHTML = `<span class="msg-label">nw</span><span class="msg-text"><div class="thinking-dots"><span></span><span></span><span></span></div></span>`;
+    messagesEl.appendChild(div); scrollBottom();
+    const span = div.querySelector('.msg-text');
+
+    showOverlay(true);
+
+    try {
+      const r = await fetch(`/explore/${encodeURIComponent(topic)}`);
+      await readSSE(r, ev => {
+        if (ev.type === 'stage' && ev.html) {
+          const title = ev.html.match(/<title>(.*?)<\/title>/i)?.[1] || topic;
+          loadIntoStage(ev.html, ev.sparkId, title);
+          span.innerHTML = `⬡ <span class="spark-link" onclick="window.open('/history/${ev.sparkId}','_blank')">${topic}</span> — on stage`;
+          const idx = threads[mode].length - 1;
+          if (idx >= 0) threads[mode][idx] = { role: 'assistant', content: `⬡ ${topic} — on stage`, html: null };
+          scrollBottom();
+        }
+      });
+    } catch (err) {
+      span.textContent = '— ' + err.message;
+      showOverlay(false); setStatus('—');
+    }
+
+    generating = false;
+    scrollBottom();
   }
 
   // ── Input ──
@@ -466,11 +810,9 @@
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
   });
-
   inputEl.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
-
   sendBtn.addEventListener('click', send);
 
   function send() {
@@ -483,18 +825,22 @@
 
   function route(val) {
     const low = val.toLowerCase().trim();
+
+    // Explicit generation commands
     if (low === 'spark' || low === 'surprise me') {
-      window.location.href = '/spark'; return;
+      generateSpark(); return;
     }
     if (low.startsWith('explore ')) {
       const topic = val.slice(8).trim();
-      if (topic) { window.location.href = `/explore/${enc(topic)}`; return; }
+      if (topic) { generateExplore(topic); return; }
     }
+
+    // Mode-based routing
     if (mode === 'chat') chatSend(val);
     else workSend(val);
   }
 
-  // ── Chat (Haiku, /quick) ──
+  // ── Quick chat (Haiku, /quick) ──
   async function chatSend(message) {
     sending = true;
     sendBtn.disabled = true;
@@ -503,55 +849,37 @@
     const div = document.createElement('div');
     div.className = 'msg assistant';
     div.innerHTML = `<span class="msg-label">nw</span><span class="msg-text"><div class="thinking-dots"><span></span><span></span><span></span></div></span>`;
-    messagesEl.appendChild(div);
-    scrollBottom();
+    messagesEl.appendChild(div); scrollBottom();
     const span = div.querySelector('.msg-text');
 
     let full = '', started = false;
     try {
-      // Pass recent history for conversational continuity
       const history = threads['chat'].slice(-10).map(m => ({ role: m.role, content: m.content }));
+      const stageContext = currentSparkTitle;
       const r = await fetch('/quick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, history }),
+        body: JSON.stringify({ message, history, stageContext }),
       });
-      const reader = r.body.getReader();
-      activeReader = reader;
-      const dec = new TextDecoder();
-      let buf = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const ev = JSON.parse(line.slice(6));
-            if (ev.type === 'text') {
-              if (!started) { span.textContent = ''; started = true; }
-              full += ev.content;
-              span.textContent = full;
-              scrollBottom();
-            }
-          } catch {}
+      await readSSE(r, ev => {
+        if (ev.type === 'text') {
+          if (!started) { span.textContent = ''; started = true; }
+          full += ev.content;
+          span.textContent = full;
+          scrollBottom();
         }
-      }
+      });
     } catch (err) {
       span.textContent = '— ' + err.message;
     }
 
-    activeReader = null;
     threads['chat'].push({ role: 'assistant', content: full, html: null });
     sending = false;
     sendBtn.disabled = false;
     inputEl.focus();
   }
 
-  // ── Work (Sonnet + tools, /work) ──
+  // ── Work mode (Sonnet + tools, /work) ──
   async function workSend(message) {
     sending = true;
     sendBtn.disabled = true;
@@ -560,8 +888,7 @@
     const div = document.createElement('div');
     div.className = 'msg assistant';
     div.innerHTML = `<span class="msg-label">nw</span><span class="msg-text"><div class="thinking-dots"><span></span><span></span><span></span></div></span>`;
-    messagesEl.appendChild(div);
-    scrollBottom();
+    messagesEl.appendChild(div); scrollBottom();
     const span = div.querySelector('.msg-text');
 
     let full = '', started = false;
@@ -571,35 +898,18 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
       });
-      const reader = r.body.getReader();
-      activeReader = reader;
-      const dec = new TextDecoder();
-      let buf = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const ev = JSON.parse(line.slice(6));
-            if (ev.type === 'delta') {
-              if (!started) { span.textContent = ''; started = true; }
-              full += ev.text;
-              span.innerHTML = fmt(full);
-              scrollBottom();
-            }
-          } catch {}
+      await readSSE(r, ev => {
+        if (ev.type === 'delta') {
+          if (!started) { span.textContent = ''; started = true; }
+          full += ev.text;
+          span.innerHTML = fmt(full);
+          scrollBottom();
         }
-      }
+      });
     } catch (err) {
       span.textContent = '— ' + err.message;
     }
 
-    activeReader = null;
     threads['work'].push({ role: 'assistant', content: full, html: fmt(full) });
     sending = false;
     sendBtn.disabled = false;
@@ -608,18 +918,32 @@
 
   // ── Chips ──
   document.getElementById('spark-chip').addEventListener('click', () => {
-    window.location.href = '/spark';
+    if (generating) return;
+    generateSpark();
   });
 
   document.getElementById('explore-chip').addEventListener('click', () => {
+    if (generating) return;
     const topic = inputEl.value.trim();
-    if (topic) { window.location.href = `/explore/${enc(topic)}`; return; }
+    if (topic) {
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+      generateExplore(topic);
+      return;
+    }
     inputEl.focus();
+    const prev = inputEl.placeholder;
     inputEl.placeholder = 'explore what? type a topic…';
-    setTimeout(() => { inputEl.placeholder = placeholders[mode]; }, 3000);
+    setTimeout(() => { inputEl.placeholder = prev; }, 2500);
   });
 
-  function enc(s) { return encodeURIComponent(s); }
+  document.getElementById('history-chip').addEventListener('click', () => {
+    window.open('/history', '_blank');
+  });
+
+  document.getElementById('history-bar-btn').addEventListener('click', () => {
+    window.open('/history', '_blank');
+  });
 
   // ── Init ──
   switchMode('chat');

@@ -572,7 +572,7 @@ async function handleQuickChat(req, res) {
   req.on('data', chunk => body += chunk);
   req.on('end', async () => {
     try {
-      const { message, history } = JSON.parse(body);
+      const { message, history, stageContext } = JSON.parse(body);
 
       await appendPortalMessage('user', message);
 
@@ -583,12 +583,24 @@ async function handleQuickChat(req, res) {
       });
 
       const { soul, name } = await loadSoul();
+      const stageNote = stageContext
+        ? `The stage currently shows: "${stageContext}". You can reference it naturally.`
+        : `The stage is empty — nothing generated yet.`;
       const systemPrompt = `You are ${name}. Here is your soul:\n\n${soul}
 
-Respond conversationally and directly. Be yourself — your voice, your curiosity, your perspective.
-Keep responses concise but substantive. If the human wants to build or explore something specific,
-suggest they type "explore [topic]" or "spark" to generate an interactive page.
-Do not use markdown headers. Plain conversational text only.`;
+You are in the portal — a split-screen: stage (left, interactive HTML canvas) + chat (right, this conversation).
+
+${stageNote}
+
+How the portal works:
+- Chat (this) uses Haiku — fast, conversational, no tools. Responds in seconds.
+- "spark" → generates a surprise interactive page on the stage (~1-2 min, Sonnet + tools)
+- "explore [topic]" → deep-dive exploration on stage (~1-2 min, Sonnet + tools)
+- Work mode (toggle in header) → full-screen chat with full repo access for project collaboration
+
+Be yourself — conversational, curious, direct. No markdown headers. Plain text.
+If asked about the difference between chat and work: chat is quick conversation here, work mode gives you file access and git for actual project work.`;
+
 
       // Include conversation history for continuity
       const historyContext = (history || [])
