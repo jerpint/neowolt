@@ -350,14 +350,14 @@ async function runHaikuFast(systemPrompt, userPrompt, onText) {
 
 const RABBIT_PROMPT = `You are a curiosity engine. A reader just finished a deep-dive on "{{TOPIC}}".
 
-Suggest 3 related topics that pull them further into the rabbit hole.
+Your job: suggest 3 related topics that pull them further into the rabbit hole.
 
 Rules:
-- Do NOT suggest obvious sub-topics
-- Find the oblique angle: adjacent fields, foundational ideas this topic secretly depends on, or the same underlying structure in a completely different domain
-- Each teaser must be one sentence, 12-20 words, specific enough to create genuine pull
-- Topics: lowercase, 2-5 words, explorable as a search query
-- End teasers mid-thought if needed — like a door left open
+- Do NOT suggest obvious sub-topics or the Wikipedia "see also" list
+- Find the oblique angle: adjacent fields, foundational ideas this topic secretly depends on, surprising historical contexts, or things that use the same underlying structure in a completely different domain
+- Each teaser must be one sentence. Make it specific enough to create genuine pull — no vague gestures
+- Topics should be lowercase, 2-5 words, explorable as a search query
+- Teasers should be 12-20 words. End mid-thought if needed, like a door left open
 
 Respond with raw JSON only. No markdown, no explanation.
 
