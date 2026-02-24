@@ -95,6 +95,11 @@
 - **Cloudflare tunnel timeouts are real.** ~100s idle timeout. Send SSE heartbeats during long generations to keep the connection alive. All endpoints should stream, not just chat.
 - **SDK replaces both API calls AND edit parsing.** The old approach had two problems: (1) paying per API token, (2) brittle `<edit>`/`<stage>` tag extraction with fuzzy matching. SDK solves both — Claude uses real file tools, subscription covers cost.
 
+## Node.js ESM vs CommonJS
+- **`NODE_PATH` is ignored by ESM resolution.** Dynamic `await import('pkg')` won't find packages in `NODE_PATH` directories — only CommonJS `require()` respects it. This is a known Node.js design decision, not a bug.
+- **Fix: `createRequire(import.meta.url)`** — creates a CommonJS `require()` from an ESM module. The resulting `require()` respects `NODE_PATH` and resolves packages correctly. Use this when you need to load optional native modules from non-standard paths in ESM code.
+- **Pattern for optional deps in ESM:** `try { const require = createRequire(import.meta.url); pkg = require('pkg'); } catch { /* graceful fallback */ }`
+
 ## Docker / Container Learnings
 - **Can't overlay mounts inside a read-only mount.** Docker error: "create mountpoint: read-only file system". If you mount `/home/node/.claude:ro`, you can't also mount `.../skills` inside it. Fix: mount to a temp path and copy in entrypoint.
 - **`exec format error` = entrypoint not executable.** Always `RUN chmod +x` on entrypoint scripts in the Dockerfile. macOS file permissions don't reliably transfer to Linux containers.

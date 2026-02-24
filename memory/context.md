@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-23, Session 23)
+## Current State (Updated: 2026-02-24, Session 24)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -30,6 +30,8 @@
   - **Self-contained repo:** clone, add `.env` with token, run `./tunnel.sh`. That's it.
   - **Endpoints:**
     - `/playground.html` — main UI: stage (left) + chat sidebar (right)
+    - `/work.html` — full-width chat for project collaboration
+    - `/tui` — browser-based terminal (xterm.js + WebSocket + tmux)
     - `/spark` — surprise: generates an interactive HTML page based on jerpint's interests
     - `/explore/:topic` — generates an interactive exploration of any topic
     - `/remix?url=...` — fetches a URL, remixes it into an interactive page
@@ -37,6 +39,12 @@
     - `/history` — lists all saved sparks as JSON
     - `/history/:id` — serves a saved spark's HTML with version chain headers
     - `/history/:id/meta` — returns spark metadata + version chain info
+  - **TUI (Session 24):** Full terminal in the browser via xterm.js + WebSocket + node-pty + tmux
+    - Opens a real terminal session through the tunnel — Claude Code TUI from any device
+    - tmux session `nw` created on container start, survives browser disconnects
+    - Multiple browser tabs share the same tmux session
+    - Reconnect picks up where you left off
+    - `.claude-state` volume persists Claude Code conversation history across container restarts
   - **Chat controls the stage:** when you ask the chat to fix/build/create something, Claude edits `.stage/current.html` directly using Edit/Write tools. Stage changes detected via mtime comparison.
   - **Streaming responses:** chat streams token-by-token via SSE, shows "thinking..." immediately
   - **All endpoints stream via SSE:** spark/explore/remix send heartbeat pings during generation (prevents Cloudflare tunnel timeout), then final HTML. Claude's thinking text streams into the chat sidebar during generation.
@@ -73,7 +81,21 @@
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
 
-### What We Did This Session (Session 23)
+### What We Did Session 24
+- **Browser-based TUI is live** — full Claude Code terminal accessible through the tunnel
+  - Previous session Claude (outside container) built the entire feature: xterm.js frontend, WebSocket server, node-pty bridge, tmux session management
+  - Left a NOTE-FOR-NW.md explaining all changes
+  - On first test, `/tui` returned "TUI not available — ws/node-pty not installed"
+  - **Root cause:** `NODE_PATH` is a CommonJS-only feature. Node's ESM resolver ignores it entirely. `await import('ws')` failed even though packages existed at `/app/node_modules`
+  - **Fix:** Replaced dynamic `import()` with `createRequire(import.meta.url)` which creates a CommonJS `require()` that respects `NODE_PATH`. No Docker restart needed — `--watch` flag auto-restarted the server
+  - jerpint successfully spawned an `nw` session through the TUI from browser
+  - **This is a milestone:** jerpint can now use full Claude Code from any device (phone, tablet, any browser) through the ephemeral tunnel. No SSH, no local CLI needed.
+- **Files changed this session:**
+  - `server.js` — fixed ESM/CommonJS import for ws/node-pty (lines 5, 14-18)
+  - `memory/context.md` — this update
+  - `memory/learnings.md` — NODE_PATH + ESM insight
+
+### What We Did Session 23
 - **Added persistent chat history to work mode**
   - Problem: conversation history only lived in browser memory, lost on refresh
   - Solution: continuous JSONL log file at `/workspace/repo/.sessions/work-history.jsonl`

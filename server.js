@@ -2,9 +2,23 @@ import { createServer } from 'node:http';
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
 import { existsSync, statSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+
+// Optional TUI deps — only available inside the Docker container
+// Use createRequire instead of dynamic import() because NODE_PATH
+// is ignored by ESM resolution but respected by CommonJS require()
+let WebSocketServer, pty;
+try {
+  const require = createRequire(import.meta.url);
+  WebSocketServer = require('ws').WebSocketServer;
+  pty = require('node-pty');
+} catch {
+  console.log('[tui] ws/node-pty not available — /tui disabled (normal outside Docker)');
+}
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
@@ -146,6 +160,133 @@ const MIME = {
   '.json': 'application/json', '.svg': 'image/svg+xml', '.xml': 'application/xml',
   '.txt': 'text/plain', '.pub': 'text/plain',
 };
+
+// --- TUI HTML (self-contained xterm.js terminal) ---
+
+const TUI_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TUI · Neowolt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100dvh; overflow: hidden; background: #0d1117; }
+    body { display: flex; flex-direction: column; font-family: 'SF Mono','Fira Code','Consolas',monospace; }
+    #topbar {
+      background: #161b22; border-bottom: 1px solid #21262d;
+      padding: 0.4rem 0.75rem; display: flex; align-items: center;
+      justify-content: space-between; font-size: 0.8rem; flex-shrink: 0;
+    }
+    #topbar .title { color: #6b9; font-weight: 600; }
+    #topbar .status { color: #555; font-size: 0.7rem; }
+    #topbar .actions { display: flex; gap: 0.5rem; }
+    #topbar .actions a {
+      font-family: inherit; font-size: 0.75rem; padding: 0.3rem 0.7rem;
+      background: #21262d; border: 1px solid #30363d; border-radius: 4px;
+      color: #888; cursor: pointer; text-decoration: none;
+    }
+    #topbar .actions a:hover { border-color: #6b9; color: #c9d1d9; }
+    #terminal { flex: 1; overflow: hidden; }
+    .xterm { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <div>
+      <span class="title">nw tui</span>
+      <span class="status" id="status">connecting...</span>
+    </div>
+    <div class="actions">
+      <a href="/work.html">work</a>
+      <a href="/playground.html">playground</a>
+    </div>
+  </div>
+  <div id="terminal"></div>
+
+  <script type="module">
+    import { Terminal } from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';
+    import { FitAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm';
+    import { WebLinksAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/+esm';
+
+    const statusEl = document.getElementById('status');
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: "'SF Mono','Fira Code','Consolas',monospace",
+      theme: {
+        background: '#0d1117',
+        foreground: '#c9d1d9',
+        cursor: '#6b9',
+        selectionBackground: '#264f78',
+        black: '#0d1117',
+        red: '#f66',
+        green: '#6b9',
+        yellow: '#e5c07b',
+        blue: '#61afef',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#c9d1d9',
+      },
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.loadAddon(new WebLinksAddon());
+    term.open(document.getElementById('terminal'));
+    fitAddon.fit();
+
+    let ws = null;
+    let reconnectTimer = null;
+
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(proto + '//' + location.host + '/tui');
+
+      ws.onopen = () => {
+        statusEl.textContent = 'connected';
+        statusEl.style.color = '#6b9';
+        // Send initial size
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      };
+
+      ws.onmessage = (ev) => {
+        term.write(ev.data);
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'disconnected — reconnecting...';
+        statusEl.style.color = '#f66';
+        reconnectTimer = setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    term.onData((data) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
+
+    term.onResize(({ cols, rows }) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+      }
+    });
+
+    window.addEventListener('resize', () => fitAddon.fit());
+    new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
+
+    connect();
+  </script>
+</body>
+</html>`;
+
 
 // --- Context loading ---
 
@@ -626,6 +767,16 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
 
   if (req.method === 'GET') {
+    if (url.pathname === '/tui') {
+      if (!WebSocketServer || !pty) {
+        res.writeHead(503, { 'Content-Type': 'text/plain' });
+        res.end('TUI not available — ws/node-pty not installed');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(TUI_HTML);
+      return;
+    }
     if (url.pathname === '/work/history') {
       const limit = parseInt(url.searchParams.get('limit')) || 30;
       const history = readWorkHistory(limit);
@@ -692,6 +843,72 @@ const server = createServer(async (req, res) => {
   res.end('Method not allowed');
 });
 
+// --- TUI WebSocket handler ---
+
+if (WebSocketServer && pty) {
+  const wss = new WebSocketServer({ noServer: true });
+
+  function ensureTmuxSession() {
+    try {
+      execSync('tmux has-session -t nw 2>/dev/null');
+    } catch {
+      execSync('tmux new-session -d -s nw -c /workspace/repo');
+    }
+  }
+
+  wss.on('connection', (ws) => {
+    console.log('[tui] client connected');
+    ensureTmuxSession();
+
+    const shell = pty.spawn('tmux', ['attach', '-t', 'nw'], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
+      cwd: '/workspace/repo',
+      env: { ...process.env, TERM: 'xterm-256color' },
+    });
+
+    shell.onData((data) => {
+      try { ws.send(data); } catch {}
+    });
+
+    shell.onExit(() => {
+      console.log('[tui] pty exited');
+      try { ws.close(); } catch {}
+    });
+
+    ws.on('message', (msg) => {
+      // Check if it's a JSON control message (resize)
+      if (typeof msg === 'string' || (msg instanceof Buffer && msg[0] === 0x7b)) {
+        try {
+          const parsed = JSON.parse(msg.toString());
+          if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+            shell.resize(parsed.cols, parsed.rows);
+            return;
+          }
+        } catch {}
+      }
+      shell.write(msg.toString());
+    });
+
+    ws.on('close', () => {
+      console.log('[tui] client disconnected');
+      shell.kill();
+    });
+  });
+
+  server.on('upgrade', (req, socket, head) => {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    if (url.pathname === '/tui') {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
+}
+
 server.listen(PORT, () => {
   console.log(`
   neowolt playground · http://localhost:${PORT}
@@ -700,6 +917,7 @@ server.listen(PORT, () => {
   endpoints:
     /playground.html — interactive playground
     /work.html       — project collaboration
+    /tui             — browser terminal (tmux)
     /spark           — surprise me
     /explore/:topic  — deep-dive notebook
     /remix?url=...   — remix any web page

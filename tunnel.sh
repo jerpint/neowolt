@@ -50,6 +50,9 @@ if [ -z "$OAUTH_TOKEN" ]; then
   exit 1
 fi
 
+# Ensure .claude-state dir exists for persistent Claude Code state
+mkdir -p .claude-state
+
 # Build the image
 echo "building container..."
 docker build -t "$IMAGE_NAME" -f container/Dockerfile .
@@ -65,6 +68,7 @@ docker run -d \
   -v "$(pwd)/sparks:/workspace/sparks:rw" \
   -v "$(pwd)/.stage:/workspace/.stage:rw" \
   -v "$(pwd)/container/skills:/skills:ro" \
+  -v "$(pwd)/.claude-state:/home/node/.claude:rw" \
   -v "$HOME/.ssh/neowolt-deploy:/home/node/.ssh/neowolt-deploy:ro" \
   -e NW_WORKSPACE=/workspace \
   -e CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN" \

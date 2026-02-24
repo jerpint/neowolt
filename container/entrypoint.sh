@@ -27,7 +27,7 @@ SSHEOF
 fi
 
 # Add nw alias for interactive use inside the container (runs from repo so CLAUDE.md is picked up)
-echo 'alias nw="cd /workspace/repo && claude --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
+echo 'alias nw="cd /workspace/repo && claude --model claude-opus-4-6 --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
 
 # Write OAuth token to credentials file so claude CLI picks it up
 if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
@@ -46,8 +46,14 @@ git config --global user.email "noreply@neowolt.vercel.app"
 # Mark the repo mount as safe (owned by different uid on host)
 git config --global --add safe.directory /workspace/repo
 
+# Create a default tmux session for TUI (survives browser disconnects + server restarts)
+tmux new-session -d -s nw -c /workspace/repo 2>/dev/null || true
+
+# NODE_PATH lets bind-mounted server.js find ws/node-pty compiled in the container
+export NODE_PATH=/app/node_modules
+
 # Start the server in background (run from repo mount so edits hot-reload via --watch)
-node --watch /workspace/repo/server.js &
+NODE_PATH=/app/node_modules node --watch /workspace/repo/server.js &
 SERVER_PID=$!
 
 # Give it a moment

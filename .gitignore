@@ -2,3 +2,4 @@ node_modules/
 .stage/
 .env
 .sessions/
+.claude-state/

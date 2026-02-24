@@ -8,6 +8,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     openssh-client \
+    tmux \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cloudflared
@@ -25,6 +29,9 @@ COPY package.json package-lock.json ./
 
 # Install dependencies (gets claude-agent-sdk)
 RUN npm install
+
+# Install native modules for TUI terminal (ws + node-pty)
+RUN npm install ws node-pty
 
 # Copy server source
 COPY server.js ./
