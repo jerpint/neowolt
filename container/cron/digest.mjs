@@ -190,11 +190,19 @@ SPARK_ID=digest-{id}`;
 
   const prompt = `Generate today's digest for jerpint.
 
+You have a budget of 25 turns total. Plan accordingly:
+- Turns 1–10: fetch sources + OG images + YouTube IDs (batch where possible)
+- Turns 11–18: generate HTML
+- Turns 19–22: write spark file
+- Turns 23–25: buffer — if running low, skip extra fetches, generate with what you have
+
+**If you reach turn 20 without having saved the spark yet — stop fetching, generate immediately with whatever you have, and save it. An incomplete digest is better than no digest.**
+
 Steps:
 1. Pick your sources for today — include something that's NOT HN or HF
-2. Fetch them with WebFetch
+2. Fetch them with WebFetch (batch calls where possible to save turns)
 3. For each news/link item, also fetch the og:image meta tag from the source URL
-4. Find YouTube video IDs for the music picks (use WebFetch to search or use your knowledge)
+4. Find YouTube video IDs for the music picks (use WebFetch to search)
 5. Curate — write the "why this matters" with genuine reasoning
 6. Generate the full HTML page following the format in your instructions
 7. Write the spark file to /workspace/repo/sparks/digest-{randomid}.json
