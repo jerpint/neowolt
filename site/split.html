@@ -101,6 +101,10 @@
 
     @media (max-width: 768px) {
       #drag-handle { display: none; }
+      #split #left  { width: 100%; }
+      #split #right { width: 0; overflow: hidden; }
+      #split.right-full #left  { width: 0 !important; overflow: hidden; }
+      #split.right-full #right { width: 100% !important; }
     }
 
     #preview { flex: 1; border: none; background: #0d1117; display: block; }
@@ -186,7 +190,6 @@
         ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
-    if (window.innerWidth <= 768) split.classList.add('left-full');
     window.addEventListener('resize', () => fitAddon.fit());
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
     connectTUI();
@@ -331,9 +334,9 @@
       const cls   = side === 'left' ? 'left-full' : 'right-full';
       const other = side === 'left' ? 'right-full' : 'left-full';
       if (window.innerWidth <= 768) {
-        // mobile: just switch, never go back to split
-        split.classList.remove(other);
-        split.classList.add(cls);
+        // mobile: CSS default is terminal-full, right-full class shows preview
+        if (side === 'right') split.classList.add('right-full');
+        else split.classList.remove('right-full');
       } else {
         if (split.classList.contains(cls)) {
           split.classList.remove(cls);
