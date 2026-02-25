@@ -1490,15 +1490,16 @@ server.listen(PORT, () => {
   }
   function montrealMinute() { return new Date().getMinutes(); }
 
-  // Check every minute — run at 8:00am Montreal, once per day
+  // Check every minute — run once per day at/after 6am Montreal
+  // Use h >= 6 not h === 6 && m === 0 to avoid missing the exact-minute window
   setInterval(() => {
-    const h = montrealHour(), m = montrealMinute();
+    const h = montrealHour();
     const today = montrealDateStr();
     const lastRun = existsSync(DIGEST_FLAG)
       ? readFileSync(DIGEST_FLAG, 'utf8').trim() : '';
-    if (h === 6 && m === 0 && lastRun !== today) {
+    if (h >= 6 && lastRun !== today) {
       writeFileSync(DIGEST_FLAG, today);
-      spawnDigest('8am daily');
+      spawnDigest('6am daily');
     }
   }, 60 * 1000);
 
