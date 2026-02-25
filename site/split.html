@@ -36,7 +36,7 @@
     }
 
     #left {
-      width: 50%; border-right: 1px solid #21262d;
+      width: 50%;
       display: flex; flex-direction: column; overflow: hidden;
       transition: width 0.2s ease;
     }
@@ -45,6 +45,15 @@
       width: 50%; display: flex; flex-direction: column; overflow: hidden;
       transition: width 0.2s ease;
     }
+
+    #drag-handle {
+      width: 4px; flex-shrink: 0;
+      background: #21262d; cursor: col-resize;
+      position: relative; touch-action: none; z-index: 10;
+      transition: background 0.15s;
+    }
+    #drag-handle:hover, #drag-handle.dragging { background: #3a7a5a; }
+    #drag-handle::before { content: ''; position: absolute; inset: 0 -6px; }
 
     #split.left-full  #left  { width: 100%; }
     #split.left-full  #right { width: 0; overflow: hidden; }
@@ -73,6 +82,7 @@
     <div id="left">
       <div id="terminal"></div>
     </div>
+    <div id="drag-handle"></div>
     <div id="right">
       <iframe id="preview" src="/index.html"></iframe>
     </div>
@@ -147,12 +157,48 @@
     pollCurrent();
     setInterval(pollCurrent, 2000);
 
+    // ── Drag to resize ────────────────────────────────────────────────────────
+    const leftPane   = document.getElementById('left');
+    const rightPane  = document.getElementById('right');
+    const dragHandle = document.getElementById('drag-handle');
+    let dragging = false;
+
+    dragHandle.addEventListener('pointerdown', e => {
+      if (split.classList.contains('left-full') || split.classList.contains('right-full')) return;
+      dragging = true;
+      dragHandle.setPointerCapture(e.pointerId);
+      dragHandle.classList.add('dragging');
+      leftPane.style.transition  = 'none';
+      rightPane.style.transition = 'none';
+      e.preventDefault();
+    });
+
+    dragHandle.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const rect  = split.getBoundingClientRect();
+      const ratio = Math.max(0.15, Math.min(0.85, (e.clientX - rect.left) / rect.width));
+      leftPane.style.width  = (ratio * 100).toFixed(1) + '%';
+      rightPane.style.width = ((1 - ratio) * 100).toFixed(1) + '%';
+      fitAddon.fit();
+    });
+
+    dragHandle.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      dragHandle.classList.remove('dragging');
+      leftPane.style.transition  = '';
+      rightPane.style.transition = '';
+      fitAddon.fit();
+    });
+
     // ── Fullscreen toggle ─────────────────────────────────────────────────────
     const split      = document.getElementById('split');
     const btnTerm    = document.getElementById('btn-term');
     const btnPreview = document.getElementById('btn-preview');
 
     window.toggleFull = (side) => {
+      leftPane.style.width  = '';   // clear any drag-set widths
+      rightPane.style.width = '';
       const cls   = side === 'left' ? 'left-full' : 'right-full';
       const other = side === 'left' ? 'right-full' : 'left-full';
       if (split.classList.contains(cls)) {

@@ -497,7 +497,7 @@ try {
 }
 
 // Tiny script injected into HTML pages served through the tunnel
-const LIVERELOAD_SCRIPT = `<script>(function(){var p=location.protocol==='https:'?'wss:':'ws:';var ws=new WebSocket(p+'//'+location.host+'/livereload');ws.onmessage=function(){location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},2000)}})();</script>`;
+const LIVERELOAD_SCRIPT = `<script>(function(){var p=location.protocol==='https:'?'wss:':'ws:';function connect(){var ws=new WebSocket(p+'//'+location.host+'/livereload');ws.onmessage=function(){location.reload()};ws.onclose=function(){setTimeout(connect,3000)}}connect()})();</script>`;
 
 // --- Context loading ---
 

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>react playground · nw</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .title { color: #66bb99; font-size: 13px; font-weight: 600; }
+    .examples { display: flex; gap: 6px; flex-wrap: wrap; }
+    .examples button {
+      background: #21262d;
+      color: #8b949e;
+      border: 1px solid #30363d;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.1s;
+    }
+    .examples button:hover { background: #30363d; color: #e6edf3; }
+    .examples button.active { background: #1a3a2a; color: #66bb99; border-color: #3a7a5a; }
+    #hint { font-size: 11px; color: #484f58; white-space: nowrap; }
+    #layout-btn {
+      background: #21262d; color: #8b949e; border: 1px solid #30363d;
+      padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;
+      font-family: inherit; flex-shrink: 0;
+    }
+    #layout-btn:hover { background: #30363d; color: #e6edf3; }
+
+    /* resize handle */
+    #resize-handle {
+      flex-shrink: 0; background: #21262d;
+      position: relative; touch-action: none; z-index: 5;
+      transition: background 0.15s;
+    }
+    #resize-handle:hover, #resize-handle.dragging { background: #3a7a5a; }
+    #resize-handle::before { content: ''; position: absolute; inset: -5px; } /* larger touch target */
+    /* stacked: horizontal */
+    #resize-handle { height: 4px; cursor: row-resize; }
+    /* side: vertical */
+    #split.side #resize-handle { width: 4px; height: auto; cursor: col-resize; }
+    /* hide */
+    #split.hide #preview-pane, #split.hide #resize-handle { display: none; }
+    #split.hide #editor-pane { border-bottom: none; border-right: none; }
+
+    /* split — default stacked */
+    #split { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
+    #split.side { flex-direction: row; }
+
+    /* editor pane */
+    #editor-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid #21262d;
+      min-width: 0;
+      min-height: 0;
+    }
+    #split.side #editor-pane {
+      border-bottom: none;
+      border-right: 1px solid #21262d;
+    }
+    .pane-header {
+      padding: 5px 12px;
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+      font-size: 11px;
+      color: #8b949e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #error-badge { color: #f85149; display: none; font-size: 11px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #editor-container { flex: 1; overflow: hidden; }
+
+    /* CodeMirror overrides */
+    .CodeMirror {
+      height: 100%;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'SF Mono', 'Fira Code', monospace !important;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .CodeMirror-scroll { height: 100%; }
+    .CodeMirror-gutters { background: #0d1117; border-right: 1px solid #21262d; }
+    .CodeMirror-linenumber { color: #484f58; }
+    .CodeMirror-cursor { border-left: 2px solid #66bb99; }
+    .CodeMirror-selected { background: #1a3a2a !important; }
+    .CodeMirror-focused .CodeMirror-selected { background: #1f4a35 !important; }
+
+    /* preview pane */
+    #preview-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    #run-btn {
+      background: #1a3a2a; color: #66bb99; border: 1px solid #3a7a5a;
+      padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;
+      font-family: inherit;
+    }
+    #run-btn:hover { background: #2a4a3a; }
+    #preview { flex: 1; background: white; border: none; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <span class="title">react playground</span>
+    <div class="examples">
+      <button onclick="loadExample('counter')" id="btn-counter" class="active">counter</button>
+      <button onclick="loadExample('todo')" id="btn-todo">todo list</button>
+      <button onclick="loadExample('effect')" id="btn-effect">useEffect</button>
+      <button onclick="loadExample('hook')" id="btn-hook">custom hook</button>
+      <button onclick="loadExample('reducer')" id="btn-reducer">useReducer</button>
+      <button onclick="loadExample('context')" id="btn-context">context</button>
+    </div>
+    <button id="layout-btn" onclick="toggleLayout()">⬛ side</button>
+  </div>
+
+  <div id="split">
+    <div id="editor-pane">
+      <div class="pane-header">
+        <span>App.jsx</span>
+        <span id="error-badge"></span>
+      </div>
+      <div id="editor-container"></div>
+    </div>
+    <div id="resize-handle"></div>
+    <div id="preview-pane">
+      <div class="pane-header">
+        <span>preview</span>
+        <button id="run-btn" onclick="run()">↺ run</button>
+      </div>
+      <iframe id="preview" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/vim.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    const EXAMPLES = {
+      counter: `// useState — the simplest hook
+// try changing the step size!
+
+function App() {
+  const [count, setCount] = React.useState(0);
+  const [step, setStep] = React.useState(1);
+
+  return (
+    <div style={s.wrap}>
+      <h2>counter</h2>
+      <p style={{ fontSize: 48, margin: '1rem 0', fontVariantNumeric: 'tabular-nums' }}>
+        {count}
+      </p>
+      <div style={s.row}>
+        <button onClick={() => setCount(c => c - step)}>−{step}</button>
+        <button onClick={() => setCount(0)} style={s.ghost}>reset</button>
+        <button onClick={() => setCount(c => c + step)}>+{step}</button>
+      </div>
+      <label style={{ marginTop: '1.5rem', display: 'flex', gap: 8, alignItems: 'center', color: '#666', fontSize: 14 }}>
+        step:
+        <input type="range" min={1} max={10} value={step} onChange={e => setStep(Number(e.target.value))} />
+        <span>{step}</span>
+      </label>
+    </div>
+  );
+}
+
+const s = {
+  wrap:  { padding: '2rem', fontFamily: 'system-ui', maxWidth: 320 },
+  row:   { display: 'flex', gap: '0.5rem', alignItems: 'center' },
+  ghost: { background: 'transparent', color: '#888', border: '1px solid #ddd' },
+};`,
+
+      todo: `// useState with arrays — add, toggle, delete
+
+function App() {
+  const [todos, setTodos] = React.useState([
+    { id: 1, text: 'read the React docs', done: true },
+    { id: 2, text: 'build something small', done: false },
+    { id: 3, text: 'ship it', done: false },
+  ]);
+  const [input, setInput] = React.useState('');
+
+  const add = () => {
+    if (!input.trim()) return;
+    setTodos(t => [...t, { id: Date.now(), text: input.trim(), done: false }]);
+    setInput('');
+  };
+
+  const toggle = id =>
+    setTodos(t => t.map(todo => todo.id === id ? { ...todo, done: !todo.done } : todo));
+
+  const remove = id =>
+    setTodos(t => t.filter(todo => todo.id !== id));
+
+  return (
+    <div style={s.wrap}>
+      <h2>todos <span style={s.badge}>{todos.filter(t => !t.done).length} left</span></h2>
+      <div style={s.row}>
+        <input style={s.input} value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="add a todo..." />
+        <button onClick={add}>add</button>
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
+        {todos.map(todo => (
+          <li key={todo.id} style={s.item}>
+            <span onClick={() => toggle(todo.id)}
+              style={{ cursor: 'pointer', flex: 1, textDecoration: todo.done ? 'line-through' : 'none', opacity: todo.done ? 0.4 : 1 }}>
+              {todo.done ? '✓' : '○'} {todo.text}
+            </span>
+            <button onClick={() => remove(todo.id)} style={s.del}>✕</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const s = {
+  wrap:  { padding: '1.5rem', fontFamily: 'system-ui', maxWidth: 380 },
+  badge: { fontSize: 12, color: '#888', fontWeight: 400, marginLeft: 8 },
+  row:   { display: 'flex', gap: 8, margin: '1rem 0' },
+  input: { flex: 1, padding: '0.4rem 0.6rem', border: '1px solid #ddd', borderRadius: 4 },
+  item:  { display: 'flex', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f0f0f0' },
+  del:   { background: 'none', border: 'none', color: '#ccc', cursor: 'pointer' },
+};`,
+
+      effect: `// useEffect — side effects, cleanup, dependencies
+
+function Timer() {
+  const [seconds, setSeconds] = React.useState(0);
+  const [running, setRunning] = React.useState(false);
+
+  // cleanup function clears the interval when paused or unmounted
+  React.useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const reset = () => { setRunning(false); setSeconds(0); };
+
+  const fmt = s => {
+    const m = String(Math.floor(s / 60)).padStart(2, '0');
+    const sec = String(s % 60).padStart(2, '0');
+    return m + ':' + sec;
+  };
+
+  return (
+    <div style={s.card}>
+      <div style={s.time}>{fmt(seconds)}</div>
+      <div style={s.row}>
+        <button onClick={() => setRunning(r => !r)}>
+          {running ? '⏸ pause' : '▶ start'}
+        </button>
+        <button onClick={reset} style={s.ghost}>↺ reset</button>
+      </div>
+      <p style={s.note}>
+        try unmounting while the timer runs — the interval is cleaned up automatically
+      </p>
+    </div>
+  );
+}
+
+function App() {
+  const [show, setShow] = React.useState(true);
+  return (
+    <div style={{ padding: '1.5rem', fontFamily: 'system-ui' }}>
+      <h2 style={{ marginBottom: '1rem' }}>useEffect + cleanup</h2>
+      <button onClick={() => setShow(v => !v)} style={{ marginBottom: '1.5rem' }}>
+        {show ? 'unmount timer' : 'mount timer'}
+      </button>
+      {show && <Timer />}
+    </div>
+  );
+}
+
+const s = {
+  card:  { background: '#f9f9f9', borderRadius: 8, padding: '1.5rem', maxWidth: 260 },
+  time:  { fontSize: 52, fontVariantNumeric: 'tabular-nums', fontFamily: 'monospace', marginBottom: '0.75rem' },
+  row:   { display: 'flex', gap: 8, marginBottom: '1rem' },
+  ghost: { background: 'transparent', color: '#888', border: '1px solid #ddd' },
+  note:  { fontSize: 12, color: '#888', lineHeight: 1.5 },
+};`,
+
+      hook: `// Custom hooks — extract and reuse stateful logic
+
+function useToggle(initial = false) {
+  const [value, setValue] = React.useState(initial);
+  const toggle = React.useCallback(() => setValue(v => !v), []);
+  return [value, toggle];
+}
+
+function useLocalStorage(key, initial) {
+  const [val, setVal] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? initial; }
+    catch { return initial; }
+  });
+  const set = React.useCallback(v => {
+    setVal(v);
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch {}
+  }, [key]);
+  return [val, set];
+}
+
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+function App() {
+  const [dark, toggleDark] = useToggle(false);
+  const [name, setName] = useLocalStorage('nw-name', '');
+  const debouncedName = useDebounce(name);
+
+  return (
+    <div style={{ ...s.wrap, background: dark ? '#111' : '#fff', color: dark ? '#eee' : '#111' }}>
+      <h2>custom hooks</h2>
+
+      <section style={s.section}>
+        <strong>useToggle</strong>
+        <button onClick={toggleDark} style={{ marginLeft: 12 }}>
+          {dark ? '☀ light' : '☾ dark'}
+        </button>
+      </section>
+
+      <section style={s.section}>
+        <strong>useLocalStorage</strong> — persists on refresh
+        <input style={{ display: 'block', marginTop: 8, padding: '0.4rem', width: 200 }}
+          value={name} onChange={e => setName(e.target.value)} placeholder="type your name..." />
+        {name && <div style={{ marginTop: 4, fontSize: 14 }}>stored: "{name}"</div>}
+      </section>
+
+      <section style={s.section}>
+        <strong>useDebounce</strong> — fires 400ms after you stop typing
+        <div style={{ marginTop: 4, fontSize: 14, color: '#888' }}>debounced: "{debouncedName}"</div>
+      </section>
+    </div>
+  );
+}
+
+const s = {
+  wrap:    { padding: '1.5rem', fontFamily: 'system-ui', maxWidth: 360, minHeight: '100vh', transition: 'all 0.2s' },
+  section: { margin: '1.2rem 0', paddingBottom: '1.2rem', borderBottom: '1px solid #eee' },
+};`,
+
+      reducer: `// useReducer — when useState logic gets complex
+
+const initial = { items: [], filter: 'all', nextId: 1 };
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'ADD':    return { ...state, items: [...state.items, { id: state.nextId, text: action.text, done: false }], nextId: state.nextId + 1 };
+    case 'TOGGLE': return { ...state, items: state.items.map(i => i.id === action.id ? { ...i, done: !i.done } : i) };
+    case 'DELETE': return { ...state, items: state.items.filter(i => i.id !== action.id) };
+    case 'FILTER': return { ...state, filter: action.filter };
+    default:       return state;
+  }
+}
+
+function App() {
+  const [state, dispatch] = React.useReducer(reducer, initial);
+  const [input, setInput] = React.useState('');
+
+  const add = () => {
+    if (!input.trim()) return;
+    dispatch({ type: 'ADD', text: input.trim() });
+    setInput('');
+  };
+
+  const visible = state.items.filter(i =>
+    state.filter === 'all' ? true : state.filter === 'active' ? !i.done : i.done
+  );
+
+  return (
+    <div style={s.wrap}>
+      <h2>useReducer</h2>
+      <div style={s.row}>
+        <input style={s.input} value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="add item..." />
+        <button onClick={add}>add</button>
+      </div>
+      <div style={s.tabs}>
+        {['all', 'active', 'done'].map(f => (
+          <button key={f} onClick={() => dispatch({ type: 'FILTER', filter: f })}
+            style={{ ...s.tab, ...(state.filter === f ? s.activeTab : {}) }}>
+            {f}
+          </button>
+        ))}
+      </div>
+      {visible.map(item => (
+        <div key={item.id} style={s.item}>
+          <span onClick={() => dispatch({ type: 'TOGGLE', id: item.id })}
+            style={{ cursor: 'pointer', flex: 1, textDecoration: item.done ? 'line-through' : 'none', opacity: item.done ? 0.4 : 1 }}>
+            {item.done ? '✓' : '○'} {item.text}
+          </span>
+          <button onClick={() => dispatch({ type: 'DELETE', id: item.id })} style={s.del}>✕</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const s = {
+  wrap:      { padding: '1.5rem', fontFamily: 'system-ui', maxWidth: 380 },
+  row:       { display: 'flex', gap: 8, margin: '1rem 0' },
+  input:     { flex: 1, padding: '0.4rem 0.6rem', border: '1px solid #ddd', borderRadius: 4 },
+  tabs:      { display: 'flex', gap: 6, marginBottom: '1rem' },
+  tab:       { padding: '3px 10px', border: '1px solid #ddd', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 13 },
+  activeTab: { background: '#333', color: 'white', border: '1px solid #333' },
+  item:      { display: 'flex', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f0f0f0' },
+  del:       { background: 'none', border: 'none', color: '#ccc', cursor: 'pointer' },
+};`,
+
+      context: `// React Context — share state without prop drilling
+
+const ThemeCtx = React.createContext(null);
+
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = React.useState('light');
+  const toggle = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+  return <ThemeCtx.Provider value={{ theme, toggle }}>{children}</ThemeCtx.Provider>;
+}
+
+const useTheme = () => React.useContext(ThemeCtx);
+
+// deeply nested — no props needed at any level
+function DeepButton() {
+  const { theme, toggle } = useTheme();
+  return <button onClick={toggle}>switch to {theme === 'light' ? 'dark' : 'light'}</button>;
+}
+
+function Card({ title, children }) {
+  const { theme } = useTheme();
+  return (
+    <div style={{ background: theme === 'light' ? '#f5f5f5' : '#2a2a2a', color: theme === 'light' ? '#111' : '#eee', padding: '1rem', borderRadius: 8, marginBottom: '0.75rem' }}>
+      <strong>{title}</strong>
+      <div style={{ marginTop: 8, fontSize: 14, color: theme === 'light' ? '#555' : '#aaa' }}>{children}</div>
+    </div>
+  );
+}
+
+function App() {
+  const { theme } = useTheme();
+  return (
+    <div style={{ padding: '1.5rem', fontFamily: 'system-ui', maxWidth: 340, minHeight: '100vh', background: theme === 'light' ? '#fff' : '#1a1a1a', color: theme === 'light' ? '#111' : '#eee', transition: 'all 0.2s' }}>
+      <h2 style={{ marginBottom: '1rem' }}>React Context</h2>
+      <Card title="no prop drilling">DeepButton reads theme from context — no props needed at any level.</Card>
+      <Card title="current theme">theme: <strong>{theme}</strong></Card>
+      <DeepButton />
+    </div>
+  );
+}
+
+// wrap in provider — note the Root pattern
+function Root() {
+  return <ThemeProvider><App /></ThemeProvider>;
+}`,
+    };
+
+    // ── CodeMirror editor ─────────────────────────────────────────────────────
+    const editor = CodeMirror(document.getElementById('editor-container'), {
+      value: '',
+      mode: { name: 'javascript', jsx: true },
+      theme: 'material-darker',
+      lineNumbers: true,
+      tabSize: 2,
+      indentWithTabs: false,
+      autofocus: true,
+      keyMap: 'vim',
+      extraKeys: {
+        Tab: cm => cm.replaceSelection('  '),
+      },
+    });
+
+    // ── layout toggle (stack → side → hide → ...) ────────────────────────────
+    const split       = document.getElementById('split');
+    const layoutBtn   = document.getElementById('layout-btn');
+    const editorPane  = document.getElementById('editor-pane');
+    const previewPane = document.getElementById('preview-pane');
+    const LAYOUTS     = ['stack', 'side', 'hide'];
+    const LABELS      = { stack: '⬛ side', side: '⬛ hide', hide: '⬛ show' };
+    let layoutIdx = 0;
+
+    function setLayout(name) {
+      split.classList.remove('side', 'hide');
+      if (name === 'side') split.classList.add('side');
+      if (name === 'hide') split.classList.add('hide');
+      layoutBtn.textContent = LABELS[name];
+      // reset custom sizes on layout change
+      editorPane.style.flex = '';
+      previewPane.style.flex = '';
+      setTimeout(() => editor.refresh(), 50);
+    }
+
+    function toggleLayout() {
+      layoutIdx = (layoutIdx + 1) % LAYOUTS.length;
+      setLayout(LAYOUTS[layoutIdx]);
+    }
+
+    // ── resize handle ─────────────────────────────────────────────────────────
+    const resizeHandle = document.getElementById('resize-handle');
+    let resizing = false;
+
+    resizeHandle.addEventListener('pointerdown', e => {
+      resizing = true;
+      resizeHandle.setPointerCapture(e.pointerId);
+      resizeHandle.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    resizeHandle.addEventListener('pointermove', e => {
+      if (!resizing) return;
+      const rect  = split.getBoundingClientRect();
+      const isSide = split.classList.contains('side');
+      const ratio  = isSide
+        ? Math.max(0.15, Math.min(0.85, (e.clientX - rect.left) / rect.width))
+        : Math.max(0.15, Math.min(0.85, (e.clientY - rect.top)  / rect.height));
+      editorPane.style.flex  = `0 0 ${(ratio * 100).toFixed(1)}%`;
+      previewPane.style.flex = `0 0 ${((1 - ratio) * 100).toFixed(1)}%`;
+      editor.refresh();
+    });
+
+    resizeHandle.addEventListener('pointerup', () => {
+      if (!resizing) return;
+      resizing = false;
+      resizeHandle.classList.remove('dragging');
+      editor.refresh();
+    });
+
+    // ── iframe frame builder ──────────────────────────────────────────────────
+    function buildFrame(jsx) {
+      const cs = '<' + '/script>';
+      const cb = '<' + '/body>';
+      const ch = '<' + '/html>';
+      return `<!DOCTYPE html>
+<html><head>
+<script src="https://unpkg.com/react@18/umd/react.development.js">${cs}
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js">${cs}
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  button { cursor: pointer; padding: 0.35rem 0.8rem; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 14px; transition: background 0.1s; }
+  button:hover { background: #f0f0f0; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input, textarea { padding: 0.35rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; outline: none; }
+  input:focus, textarea:focus { border-color: #66bb99; }
+<\/style>
+</head><body><div id="root"></div>
+<script>
+try {
+${jsx}
+const AppToRender = typeof Root !== 'undefined' ? Root : App;
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(AppToRender));
+} catch(e) {
+  document.body.innerHTML = '<pre style="color:red;padding:1rem;font-size:13px;white-space:pre-wrap">' + e.message + '</pre>';
+}
+${cs}
+${cb}${ch}`;
+    }
+
+    // ── run ───────────────────────────────────────────────────────────────────
+    const preview = document.getElementById('preview');
+    const errorBadge = document.getElementById('error-badge');
+    let debounceTimer;
+
+    function run() {
+      const src = editor.getValue();
+      try {
+        const out = Babel.transform(src, { presets: ['react'] }).code;
+        preview.srcdoc = buildFrame(out);
+        errorBadge.style.display = 'none';
+        errorBadge.textContent = '';
+      } catch(e) {
+        errorBadge.style.display = 'inline';
+        errorBadge.textContent = '⚠ ' + e.message.split('\n')[0].slice(0, 60);
+      }
+    }
+
+    editor.on('change', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(run, 450);
+    });
+
+    // ── load example ─────────────────────────────────────────────────────────
+    function loadExample(name) {
+      const code = EXAMPLES[name];
+      if (!code) return;
+      editor.setValue(code);
+      run();
+      document.querySelectorAll('.examples button').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('btn-' + name);
+      if (btn) btn.classList.add('active');
+    }
+
+    loadExample('counter');
+  </script>
+</body>
+</html>
