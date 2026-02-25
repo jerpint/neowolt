@@ -195,7 +195,7 @@
     // ensure fit after mobile CSS applies on first paint
     setTimeout(() => fitAddon.fit(), 100);
 
-    // touch scroll → xterm scroll on mobile
+    // touch scroll → send mouse wheel escape sequences to tmux
     if ('ontouchstart' in window) {
       let lastTouchY = 0;
       const termEl = document.getElementById('terminal');
@@ -205,7 +205,11 @@
       termEl.addEventListener('touchmove', e => {
         const dy = lastTouchY - e.touches[0].clientY;
         lastTouchY = e.touches[0].clientY;
-        term.scrollLines(Math.round(dy / 20));
+        const lines = Math.round(Math.abs(dy) / 25);
+        if (lines === 0 || ws?.readyState !== WebSocket.OPEN) return;
+        // SGR mouse: button 64 = wheel up, 65 = wheel down
+        const seq = dy > 0 ? '\x1b[<65;1;1M' : '\x1b[<64;1;1M';
+        for (let i = 0; i < lines; i++) ws.send(seq);
       }, { passive: true });
     }
     connectTUI();
