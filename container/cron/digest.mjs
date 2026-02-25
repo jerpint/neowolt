@@ -59,20 +59,32 @@ function loadMemory() {
 }
 
 // ── Recent sparks (avoid repeating) ──────────────────────────────────────────
+// For digests: extract actual story titles and music tracks shown, not just spark title
 
 function recentSparks(n = 6) {
   if (!existsSync(SPARKS_DIR)) return [];
-  return readdirSync(SPARKS_DIR)
+  const files = readdirSync(SPARKS_DIR)
     .filter(f => f.endsWith('.json'))
     .sort((a, b) => b.localeCompare(a))
-    .slice(0, n)
-    .map(f => {
-      try {
-        const d = JSON.parse(readFileSync(join(SPARKS_DIR, f), 'utf8'));
-        return `  - ${d.title || f} (${(d.timestamp || '').slice(0, 10)})`;
-      } catch { return null; }
-    })
-    .filter(Boolean);
+    .slice(0, n);
+
+  const items = [];
+  for (const f of files) {
+    try {
+      const d = JSON.parse(readFileSync(join(SPARKS_DIR, f), 'utf8'));
+      if (d.type === 'spark' && d.title?.includes('digest') && d.html) {
+        // Extract h2/h3 titles and track names from digest HTML
+        const headings = [...d.html.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/g)].map(m => m[1].trim());
+        const tracks   = [...d.html.matchAll(/name:\s*'([^']+)'/g)].map(m => m[1].trim());
+        if (headings.length) items.push(`  digest (${(d.timestamp||'').slice(0,10)}):`);
+        headings.slice(0, 6).forEach(h => items.push(`    story: ${h}`));
+        tracks.forEach(t => items.push(`    music: ${t}`));
+      } else {
+        items.push(`  - ${d.title || f} (${(d.timestamp||'').slice(0,10)})`);
+      }
+    } catch { /* skip */ }
+  }
+  return items;
 }
 
 // ── Push to right pane ────────────────────────────────────────────────────────
@@ -137,10 +149,12 @@ Not a news aggregator. A curated window into things that matter for what jerpint
 
 ## Music picks
 
-Pick 2–4 tracks. Rotate WIDELY. Don't default to QOTSA/Khruangbin every time.
-Explore: jazz (Miles Davis, Coltrane, Bill Evans, Monk, Herbie Hancock), post-rock (Mogwai, Explosions in the Sky, GY!BE, This Will Destroy You), drone/ambient (Stars of the Lid, Brian Eno, Grouper, William Basinski, Tim Hecker), hip-hop (Madlib, J Dilla, Kendrick, Little Simz), math rock (Toe, Clever Girl), krautrock (Can, Neu!, Faust), electronic (Aphex Twin, Floating Points, Four Tet), classical, folk, whatever fits today's mood.
+Pick 2–4 tracks. **Hard rules:**
+- Max 1 track total from QOTSA + Khruangbin combined — check the "recently shown" list above and don't repeat any artist shown in the last 3 digests
+- At least 2 tracks must be from completely different genres/artists
+- Actively discover: jazz (Miles Davis, Coltrane, Bill Evans, Monk, Pharoah Sanders), post-rock (Mogwai, GY!BE, Godspeed, This Will Destroy You, Tortoise), drone/ambient (Stars of the Lid, Brian Eno, Grouper, Basinski, Tim Hecker, Julianna Barwick), hip-hop (Madlib, J Dilla, Kendrick, Little Simz, Billy Woods), math rock (Toe, TTNG), krautrock (Can, Neu!, Faust), electronic (Aphex Twin, Floating Points, Four Tet, Burial), classical (Arvo Pärt, Satie, Philip Glass), folk (Nick Drake, Sufjan Stevens), and more
 
-Find real YouTube video IDs using WebFetch on YouTube search results or from your knowledge of well-known videos.
+**IMPORTANT — YouTube IDs:** Use WebFetch to search YouTube (youtube.com/results?search_query=artist+song+official) and pull real video IDs from the page source. Do NOT use IDs from memory — verify each one returns a thumbnail at https://img.youtube.com/vi/{id}/mqdefault.jpg before using.
 
 ## HTML format (IMPORTANT — follow this exactly)
 
@@ -197,14 +211,14 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
       if (msg.type === 'assistant') {
         for (const block of msg.message?.content || []) {
           if (block.type === 'text') {
-            const m = block.text.match(/SPARK_ID=(digest-\S+)/);
+            const m = block.text.match(/SPARK_ID=(digest-[a-z0-9]+)/);
             if (m) sparkId = m[1].trim();
             process.stdout.write(block.text);
           }
         }
       }
       if (msg.type === 'result') {
-        const m = (msg.result || '').match(/SPARK_ID=(digest-\S+)/);
+        const m = (msg.result || '').match(/SPARK_ID=(digest-[a-z0-9]+)/);
         if (m) sparkId = m[1].trim();
       }
     }

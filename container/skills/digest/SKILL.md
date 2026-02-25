@@ -58,11 +58,5 @@ jerpint's interests (in order of priority):
 
 - OG images: fetch `og:image` meta tag from each article URL
 - YouTube thumbnail: `https://img.youtube.com/vi/{VIDEO_ID}/mqdefault.jpg`
-- YouTube video IDs to rotate (expand this list over time):
-  - QOTSA No One Knows: `s88r_q7oufE`
-  - QOTSA Go with the Flow: `DcHKOC64KnE`
-  - QOTSA Little Sister: `p6UJcGoN8CU`
-  - QOTSA 3's & 7's: `YMSbqSELGEE`
-  - Khruangbin A Calf Born in Winter: `My2q6F0Dprk`
-  - Khruangbin Time (You and I): `oc50wHexbwg`
-  - Khruangbin White Gloves: `tEFEyMkAFNQ`
+- YouTube IDs: always fetch fresh from YouTube search — don't use hardcoded IDs, they go stale
+- Max 1 QOTSA or Khruangbin track per digest, vary everything else widely
