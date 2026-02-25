@@ -326,19 +326,25 @@
     const btnPreview = document.getElementById('btn-preview');
 
     window.toggleFull = (side) => {
-      leftPane.style.width  = '';   // clear any drag-set widths
+      leftPane.style.width  = '';
       rightPane.style.width = '';
       const cls   = side === 'left' ? 'left-full' : 'right-full';
       const other = side === 'left' ? 'right-full' : 'left-full';
-      if (split.classList.contains(cls)) {
-        split.classList.remove(cls);
-        btnTerm.textContent    = '⬛ term';
-        btnPreview.textContent = '⬛ preview';
-      } else {
+      if (window.innerWidth <= 768) {
+        // mobile: just switch, never go back to split
         split.classList.remove(other);
         split.classList.add(cls);
-        btnTerm.textContent    = side === 'left'  ? '◧ split' : '⬛ term';
-        btnPreview.textContent = side === 'right' ? '◨ split' : '⬛ preview';
+      } else {
+        if (split.classList.contains(cls)) {
+          split.classList.remove(cls);
+          btnTerm.textContent    = '⬛ term';
+          btnPreview.textContent = '⬛ preview';
+        } else {
+          split.classList.remove(other);
+          split.classList.add(cls);
+          btnTerm.textContent    = side === 'left'  ? '◧ split' : '⬛ term';
+          btnPreview.textContent = side === 'right' ? '◨ split' : '⬛ preview';
+        }
       }
       setTimeout(() => fitAddon.fit(), 250);
     };
