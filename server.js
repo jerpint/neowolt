@@ -1141,10 +1141,10 @@ ${HTML_RULES}
   }
 }
 
-// --- Static file serving ---
+// ─── STATIC ──────────────────────────────────────────────────────────────────
 
 async function serveStatic(url, res) {
-  let filePath = url === '/' ? '/index.html' : url;
+  let filePath = url === '/' ? '/split.html' : url;
   const fullPath = join(SITE_DIR, filePath);
   try {
     const content = await readFile(fullPath);
@@ -1178,7 +1178,7 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === '/version') { res.writeHead(200); res.end('v2-with-persist'); return; }
 
-  // Current view control
+  // ─── CURRENT (split view control) ────────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/current') {
     let body = '';
     req.on('data', c => body += c);
@@ -1204,12 +1204,16 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── CHAT MODES ──────────────────────────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/chat') return handleChat(req, res);
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
   if (req.method === 'POST' && url.pathname === '/workspace') return handleWorkspace(req, res);
+
+  // ─── TOOLS (proxy + registry) ─────────────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/tools/spawn') return handleToolSpawn(req, res);
 
   if (req.method === 'GET') {
+    // ─── TUI ───────────────────────────────────────────────────────────────
     if (url.pathname === '/tui') {
       if (!WebSocketServer || !pty) {
         res.writeHead(503, { 'Content-Type': 'text/plain' });
@@ -1234,29 +1238,17 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(history));
       return;
     }
-    if (url.pathname === '/tools') {
-      const tools = [];
-      for (const [name, info] of toolRegistry) {
-        tools.push({ name, port: info.port, pid: info.pid, uptime: Date.now() - info.startedAt });
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tools));
-      return;
-    }
-    if (url.pathname.startsWith('/tools/')) {
-      return proxyToolHTTP(url.pathname.split('/')[2], req, res, url);
+    // ─── SPARKS ────────────────────────────────────────────────────────────
+    if (url.pathname === '/spark') return handleSpark(res);
+    if (url.pathname.startsWith('/explore/')) {
+      const topic = decodeURIComponent(url.pathname.slice('/explore/'.length));
+      if (topic) return handleExplore(topic, res);
     }
     if (url.pathname === '/remix') {
       const targetUrl = url.searchParams.get('url');
       if (targetUrl) return handleRemix(targetUrl, res);
       return serveStatic('/remix.html', res);
     }
-    if (url.pathname.startsWith('/explore/')) {
-      const topic = decodeURIComponent(url.pathname.slice('/explore/'.length));
-      if (topic) return handleExplore(topic, res);
-    }
-    if (url.pathname === '/spark') return handleSpark(res);
-
     if (url.pathname === '/history') {
       const sparks = await listSparks();
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1275,6 +1267,19 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'not found' }));
       }
       return;
+    }
+    // ─── TOOLS ─────────────────────────────────────────────────────────────
+    if (url.pathname === '/tools') {
+      const tools = [];
+      for (const [name, info] of toolRegistry) {
+        tools.push({ name, port: info.port, pid: info.pid, uptime: Date.now() - info.startedAt });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(tools));
+      return;
+    }
+    if (url.pathname.startsWith('/tools/')) {
+      return proxyToolHTTP(url.pathname.split('/')[2], req, res, url);
     }
     if (url.pathname.startsWith('/history/')) {
       const id = url.pathname.slice('/history/'.length);

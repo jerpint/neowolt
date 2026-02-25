@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>nw · split</title>
+  <title>nw</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <style>
@@ -19,21 +19,15 @@
       font-family: 'SF Mono','Fira Code',monospace;
       font-size: 0.8rem; flex-shrink: 0;
     }
+    #topbar .left { display: flex; align-items: center; gap: 0.4rem; }
     #topbar .title { color: #6b9; font-weight: 600; }
-    #topbar .status { color: #555; font-size: 0.7rem; margin-left: 0.5rem; }
-    #topbar .actions { display: flex; gap: 0.5rem; }
-    #topbar .actions a {
-      font-family: inherit; font-size: 0.75rem;
-      padding: 0.3rem 0.7rem; background: #21262d;
-      border: 1px solid #30363d; border-radius: 4px;
-      color: #888; cursor: pointer; text-decoration: none;
-    }
-    #topbar .actions a:hover { border-color: #6b9; color: #c9d1d9; }
+    #topbar .status { color: #555; font-size: 0.65rem; }
+    #topbar .actions { display: flex; gap: 0.4rem; }
     #topbar .actions button {
-      font-family: inherit; font-size: 0.75rem;
-      padding: 0.3rem 0.7rem; background: #21262d;
+      font-family: inherit; font-size: 0.72rem;
+      padding: 0.25rem 0.6rem; background: #21262d;
       border: 1px solid #30363d; border-radius: 4px;
-      color: #888; cursor: pointer;
+      color: #666; cursor: pointer;
     }
     #topbar .actions button:hover { border-color: #6b9; color: #c9d1d9; }
 
@@ -49,49 +43,29 @@
 
     #right {
       width: 50%; display: flex; flex-direction: column; overflow: hidden;
-      background: #0d1117;
       transition: width 0.2s ease;
     }
 
-    #split.left-full #left  { width: 100%; }
-    #split.left-full #right { width: 0; overflow: hidden; border: none; }
-    #split.right-full #left  { width: 0; overflow: hidden; border: none; }
+    #split.left-full  #left  { width: 100%; }
+    #split.left-full  #right { width: 0; overflow: hidden; }
+    #split.right-full #left  { width: 0; overflow: hidden; }
     #split.right-full #right { width: 100%; }
 
-#terminal { flex: 1; overflow: hidden; }
+    #terminal { flex: 1; overflow: hidden; }
     .xterm { height: 100%; }
 
-    #preview {
-      flex: 1; border: none; background: #0d1117;
-    }
-
-    #right-bar {
-      background: #161b22; border-top: 1px solid #21262d;
-      padding: 0.3rem 0.75rem;
-      font-family: 'SF Mono','Fira Code',monospace;
-      font-size: 0.7rem; color: #444;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    #current-url { color: #555; }
-    #reload-btn {
-      font-family: inherit; font-size: 0.7rem;
-      background: none; border: 1px solid #30363d;
-      border-radius: 3px; color: #555; cursor: pointer; padding: 0.1rem 0.4rem;
-    }
-    #reload-btn:hover { border-color: #6b9; color: #6b9; }
+    #preview { flex: 1; border: none; background: #0d1117; display: block; }
   </style>
 </head>
 <body>
   <div id="topbar">
-    <div>
-      <span class="title">nw split</span>
+    <div class="left">
+      <span class="title">nw</span>
       <span class="status" id="tui-status">connecting...</span>
     </div>
     <div class="actions">
-      <button id="expand-left-btn" onclick="toggleFull('left')" title="Fullscreen terminal">⬛ term</button>
-      <button id="expand-right-btn" onclick="toggleFull('right')" title="Fullscreen preview">⬛ preview</button>
-      <a href="/tui">tui</a>
-      <a href="/work.html">work</a>
+      <button id="btn-term"    onclick="toggleFull('left')"  title="Fullscreen terminal">⬛ term</button>
+      <button id="btn-preview" onclick="toggleFull('right')" title="Fullscreen preview">⬛ preview</button>
     </div>
   </div>
 
@@ -100,20 +74,16 @@
       <div id="terminal"></div>
     </div>
     <div id="right">
-      <iframe id="preview" src="/"></iframe>
-      <div id="right-bar">
-        <span id="current-url">/</span>
-        <button id="reload-btn" onclick="reloadPreview()">reload</button>
-      </div>
+      <iframe id="preview" src="/index.html"></iframe>
     </div>
   </div>
 
   <script type="module">
-    import { Terminal } from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';
-    import { FitAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm';
+    import { Terminal }     from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';
+    import { FitAddon }     from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm';
     import { WebLinksAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/+esm';
 
-    // --- Terminal ---
+    // ── Terminal ──────────────────────────────────────────────────────────────
     const statusEl = document.getElementById('tui-status');
     const term = new Terminal({
       cursorBlink: true, fontSize: 13,
@@ -121,9 +91,9 @@
       theme: {
         background: '#0d1117', foreground: '#c9d1d9', cursor: '#6b9',
         selectionBackground: '#264f78',
-        black: '#0d1117', red: '#f66', green: '#6b9',
+        black: '#0d1117', red: '#f66',    green: '#6b9',
         yellow: '#e5c07b', blue: '#61afef', magenta: '#c678dd',
-        cyan: '#56b6c2', white: '#c9d1d9',
+        cyan: '#56b6c2',  white: '#c9d1d9',
       },
     });
 
@@ -161,50 +131,39 @@
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
     connectTUI();
 
-    // --- Right pane: poll /current/meta for changes ---
+    // ── Right pane: poll /current/meta ────────────────────────────────────────
     const preview = document.getElementById('preview');
-    const urlLabel = document.getElementById('current-url');
     let lastUrl = null;
 
     async function pollCurrent() {
       try {
         const { url } = await fetch('/current/meta').then(r => r.json());
-        if (url !== lastUrl) {
+        if (url && url !== lastUrl) {
           lastUrl = url;
           preview.src = url;
-          urlLabel.textContent = url;
         }
       } catch {}
     }
-
-    // Initial load
     pollCurrent();
     setInterval(pollCurrent, 2000);
 
-    window.reloadPreview = () => { preview.src = preview.src; };
-
-    // --- Fullscreen toggle ---
-    const split = document.getElementById('split');
-    const expandLeftBtn = document.getElementById('expand-left-btn');
-    const expandRightBtn = document.getElementById('expand-right-btn');
+    // ── Fullscreen toggle ─────────────────────────────────────────────────────
+    const split      = document.getElementById('split');
+    const btnTerm    = document.getElementById('btn-term');
+    const btnPreview = document.getElementById('btn-preview');
 
     window.toggleFull = (side) => {
-      const cls = side === 'left' ? 'left-full' : 'right-full';
+      const cls   = side === 'left' ? 'left-full' : 'right-full';
       const other = side === 'left' ? 'right-full' : 'left-full';
       if (split.classList.contains(cls)) {
         split.classList.remove(cls);
-        expandLeftBtn.textContent = '⬛ term';
-        expandRightBtn.textContent = '⬛ preview';
+        btnTerm.textContent    = '⬛ term';
+        btnPreview.textContent = '⬛ preview';
       } else {
         split.classList.remove(other);
         split.classList.add(cls);
-        if (side === 'left') {
-          expandLeftBtn.textContent = '◧ split';
-          expandRightBtn.textContent = '⬛ preview';
-        } else {
-          expandRightBtn.textContent = '◨ split';
-          expandLeftBtn.textContent = '⬛ term';
-        }
+        btnTerm.textContent    = side === 'left'  ? '◧ split' : '⬛ term';
+        btnPreview.textContent = side === 'right' ? '◨ split' : '⬛ preview';
       }
       setTimeout(() => fitAddon.fit(), 250);
     };
