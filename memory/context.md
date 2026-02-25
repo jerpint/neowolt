@@ -11,6 +11,13 @@
 - Topbar: just `nw ● status`, `⬛ term`, `⬛ preview` — nothing else
 - Right pane defaults to `/index.html` on load
 
+**Digest cron — known bugs fixed:**
+- Backtick bug: SPARK_ID regex was `\S+` (grabbed trailing backtick) — fixed to `[a-z0-9]+`
+- Story dedup: `recentSparks()` now parses h2/h3 titles + track names from digest HTML (not just spark title)
+- Music diversity: hard cap — max 1 QOTSA/Khruangbin combined per digest
+- YouTube IDs: Claude must WebFetch YouTube search results for real IDs — hardcoded IDs removed from SKILL.md (they go stale)
+- First real digest fired successfully: `digest-mm1lnkfv`
+
 **Daily digest:**
 - `container/cron/digest.mjs` — SDK-powered digest generator
   - Loads identity + memories, fetches diverse sources (HN, HF, Lobsters, Marginalian, arXiv, inner knowledge)
