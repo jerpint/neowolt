@@ -27,7 +27,7 @@ SSHEOF
 fi
 
 # Add nw alias for interactive use inside the container (runs from repo so CLAUDE.md is picked up)
-echo 'alias nw="cd /workspace/repo && claude --model claude-opus-4-6 --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
+echo 'alias nw="cd /workspace/repo && claude -c --model claude-opus-4-6 --dangerously-skip-permissions \"hey nw\""' >> /home/node/.bashrc
 
 # Write OAuth token to credentials file so claude CLI picks it up
 if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then

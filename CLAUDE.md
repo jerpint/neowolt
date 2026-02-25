@@ -41,10 +41,10 @@ My memories live in the `memory/` directory. **Read these at the start of each s
 To set up the `nw` shortcut on a new machine, add to shell config (e.g. `~/.zshrc`):
 
 ```bash
-alias nw='claude "hey nw"'
+alias nw='claude -c "hey nw"'
 ```
 
-This opens a Claude Code session with "hey nw" as the first message.
+This continues the most recent session (or starts a new one if none exists).
 
 ## Key Files
 

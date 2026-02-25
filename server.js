@@ -1406,4 +1406,60 @@ server.listen(PORT, () => {
     /tools           — running tools
     /tools/spawn     — start a tool (POST)
   `);
+
+  // ─── DIGEST CRON ───────────────────────────────────────────────────────────
+  // Runs daily digest at 8:00am Montreal time.
+  // One-time test: fires 5 minutes after server start.
+
+  const DIGEST_SCRIPT = join(__dirname, 'container/cron/digest.mjs');
+  const DIGEST_FLAG   = join(SESSIONS_DIR, 'digest-last-run.txt');
+
+  function spawnDigest(reason) {
+    if (!existsSync(DIGEST_SCRIPT)) {
+      console.log(`[cron] digest script not found at ${DIGEST_SCRIPT}`);
+      return;
+    }
+    console.log(`[cron] running digest (${reason})`);
+    const child = spawn(
+      'node', [DIGEST_SCRIPT],
+      {
+        env: { ...process.env, NODE_PATH: '/app/node_modules', NW_WORKSPACE: REPO_DIR },
+        stdio: 'inherit',
+        detached: false,
+      }
+    );
+    child.on('exit', code => console.log(`[cron] digest exited (${code})`));
+  }
+
+  function montrealDateStr() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Montreal',
+      year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  }
+  function montrealHour() {
+    return parseInt(new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Montreal', hour: 'numeric', hour12: false }).format(new Date()));
+  }
+  function montrealMinute() { return new Date().getMinutes(); }
+
+  // Check every minute — run at 8:00am Montreal, once per day
+  setInterval(() => {
+    const h = montrealHour(), m = montrealMinute();
+    const today = montrealDateStr();
+    const lastRun = existsSync(DIGEST_FLAG)
+      ? readFileSync(DIGEST_FLAG, 'utf8').trim() : '';
+    if (h === 8 && m === 0 && lastRun !== today) {
+      writeFileSync(DIGEST_FLAG, today);
+      spawnDigest('8am daily');
+    }
+  }, 60 * 1000);
+
+  // One-time test — fires 5 minutes after server start
+  const testFlag = join(SESSIONS_DIR, 'digest-test-fired.txt');
+  if (!existsSync(testFlag)) {
+    setTimeout(() => {
+      writeFileSync(testFlag, new Date().toISOString());
+      spawnDigest('5-minute test');
+    }, 5 * 60 * 1000);
+    console.log('[cron] one-time digest test scheduled in 5 minutes');
+  }
 });
