@@ -190,13 +190,13 @@ SPARK_ID=digest-{id}`;
 
   const prompt = `Generate today's digest for jerpint.
 
-You have a budget of 25 turns total. Plan accordingly:
-- Turns 1–10: fetch sources + OG images + YouTube IDs (batch where possible)
-- Turns 11–18: generate HTML
-- Turns 19–22: write spark file
-- Turns 23–25: buffer — if running low, skip extra fetches, generate with what you have
+You have a budget of 30 turns total. Plan accordingly:
+- Turns 1–12: fetch sources + OG images + YouTube IDs (batch where possible)
+- Turns 13–22: generate HTML
+- Turns 23–27: write spark file
+- Turns 28–30: buffer — if running low, skip extra fetches, generate with what you have
 
-**If you reach turn 20 without having saved the spark yet — stop fetching, generate immediately with whatever you have, and save it. An incomplete digest is better than no digest.**
+**If you reach turn 24 without having saved the spark yet — stop fetching, generate immediately with whatever you have, and save it. An incomplete digest is better than no digest.**
 
 Steps:
 1. Pick your sources for today — include something that's NOT HN or HF
@@ -226,7 +226,7 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
 
   try {
     for await (const msg of query({ prompt, options: {
-      maxTurns: 25,
+      maxTurns: 30,
       cwd: REPO_DIR,
       allowDangerouslySkipPermissions: true,
       permissionMode: 'bypassPermissions',
