@@ -186,7 +186,7 @@
         ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
-    if (window.innerWidth <= 768) split.classList.add('right-full');
+    if (window.innerWidth <= 768) split.classList.add('left-full');
     window.addEventListener('resize', () => fitAddon.fit());
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
     connectTUI();
