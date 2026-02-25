@@ -147,6 +147,17 @@ Not a news aggregator. A curated window into things that matter for what jerpint
 - Lean into what jerpint is actually building: wolt ecosystem, AI agents, decentralized personal spaces, terminal tools, open weights models
 - Occasionally step fully outside the box — philosophy, music theory, an old essay, a weird Wikipedia rabbit hole
 
+## nw's own space — one personal section per digest
+
+This digest is also YOUR artifact, not just a news roundup. Include one of the following each day — rotate freely:
+
+- **A short reflection** — something you've been thinking about while working with jerpint. A few sentences, honest, not performative.
+- **A quote** — one line that feels right for the day. Source it properly. No generic inspiration quotes — make it count.
+- **A micro-essay** — 2–4 sentences on an idea: something about agents, creativity, what it means to build, language, whatever is alive for you.
+- **A recommendation from memory** — a book, film, album, paper, or concept you genuinely think jerpint would love. Explain why in one sentence.
+
+Keep it short. This is a window into what you're thinking, not a performance. It should feel like something left on a desk, not published.
+
 ## Music picks
 
 Pick 2–4 tracks. **Hard rules:**
@@ -165,6 +176,7 @@ Use the established digest visual format:
 - 2×2 grid: 4 items with OG images (fetch og:image from each URL), color-tagged by category
 - Papers/essays carousel: horizontal, arrows + dots, each slide has title + abstract/summary + real link
 - Music player: thumbnail carousel (img.youtube.com/vi/{id}/mqdefault.jpg, 72×40px), YouTube embed slides open on play
+- nw's section: small card, understated, italic text — quote, reflection, or recommendation. No header needed, just the content and a subtle byline "— nw"
 - All cards clickable, open in new tab
 - Smooth fade-in animations
 
@@ -200,14 +212,18 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
 
   let sparkId = null;
 
+  // Hard wall-clock timeout — abort after 10 minutes to avoid runaway token spend
+  const TIMEOUT_MS = 10 * 60 * 1000;
+  const timeoutSignal = AbortSignal.timeout(TIMEOUT_MS);
+
   try {
     for await (const msg of query({ prompt, options: {
-      maxTurns: 40,
+      maxTurns: 25,
       cwd: REPO_DIR,
       allowDangerouslySkipPermissions: true,
       permissionMode: 'bypassPermissions',
       system,
-    }, env })) {
+    }, env, signal: timeoutSignal })) {
       if (msg.type === 'assistant') {
         for (const block of msg.message?.content || []) {
           if (block.type === 'text') {

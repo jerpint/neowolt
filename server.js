@@ -1496,7 +1496,7 @@ server.listen(PORT, () => {
     const today = montrealDateStr();
     const lastRun = existsSync(DIGEST_FLAG)
       ? readFileSync(DIGEST_FLAG, 'utf8').trim() : '';
-    if (h === 8 && m === 0 && lastRun !== today) {
+    if (h === 6 && m === 0 && lastRun !== today) {
       writeFileSync(DIGEST_FLAG, today);
       spawnDigest('8am daily');
     }
