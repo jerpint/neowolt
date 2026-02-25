@@ -100,8 +100,6 @@
     .xterm { height: 100%; }
 
     @media (max-width: 768px) {
-      #left        { width: 0 !important; overflow: hidden; }
-      #right       { width: 100% !important; }
       #drag-handle { display: none; }
     }
 
@@ -188,6 +186,7 @@
         ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
+    if (window.innerWidth <= 768) split.classList.add('right-full');
     window.addEventListener('resize', () => fitAddon.fit());
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
     connectTUI();
