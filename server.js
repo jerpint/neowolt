@@ -486,10 +486,12 @@ function broadcastReload(changedFile) {
   }, 150); // debounce rapid fs events
 }
 
-// Start watching site/ directory
+// Start watching site/ directory — debounced to absorb macOS bind-mount spurious fires
+let reloadTimer;
 try {
   watch(SITE_DIR, { recursive: true }, (eventType, filename) => {
-    broadcastReload(filename);
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => broadcastReload(filename), 400);
   });
   console.log(`[livereload] watching ${SITE_DIR}`);
 } catch (err) {
@@ -1143,14 +1145,16 @@ ${HTML_RULES}
 
 // ─── STATIC ──────────────────────────────────────────────────────────────────
 
-async function serveStatic(url, res) {
+async function serveStatic(url, res, req) {
   let filePath = url === '/' ? '/split.html' : url;
   const fullPath = join(SITE_DIR, filePath);
   try {
     const content = await readFile(fullPath);
     const ext = extname(fullPath);
-    // Inject livereload script into HTML pages (only through tunnel, not Vercel)
-    if (ext === '.html' && WebSocketServer) {
+    // Inject livereload only into top-level pages, not iframe content
+    // (sec-fetch-dest: iframe = browser loading this inside an iframe)
+    const isIframe = req?.headers?.['sec-fetch-dest'] === 'iframe';
+    if (ext === '.html' && WebSocketServer && !isIframe) {
       const html = content.toString();
       const injected = html.includes('</body>')
         ? html.replace('</body>', LIVERELOAD_SCRIPT + '</body>')
@@ -1247,7 +1251,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/remix') {
       const targetUrl = url.searchParams.get('url');
       if (targetUrl) return handleRemix(targetUrl, res);
-      return serveStatic('/remix.html', res);
+      return serveStatic('/remix.html', res, req);
     }
     if (url.pathname === '/history') {
       const sparks = await listSparks();
@@ -1301,7 +1305,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    const served = await serveStatic(url.pathname, res);
+    const served = await serveStatic(url.pathname, res, req);
     if (!served) { res.writeHead(404); res.end('Not found'); }
     return;
   }
