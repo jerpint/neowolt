@@ -1,6 +1,47 @@
 # Project Context
 
-## Current State (Updated: 2026-02-25, Session 25)
+## Current State (Updated: 2026-02-25, Session 25+ — post-compaction)
+
+### What was built this session (Session 25+)
+
+**Split view is now THE UI:**
+- `/` serves `split.html` — TUI terminal left, iframe right, fullscreen toggles in topbar
+- Right pane controlled by `POST /current` → `GET /current/meta` polled every 2s
+- `site/tunnel.html` deleted (was dead)
+- Topbar: just `nw ● status`, `⬛ term`, `⬛ preview` — nothing else
+- Right pane defaults to `/index.html` on load
+
+**Daily digest:**
+- `container/cron/digest.mjs` — SDK-powered digest generator
+  - Loads identity + memories, fetches diverse sources (HN, HF, Lobsters, Marginalian, arXiv, inner knowledge)
+  - Montreal time awareness: "good morning jerpint", "good evening jerpint" etc.
+  - Rotates music widely (not just QOTSA/Khruangbin — jazz, post-rock, ambient, etc.)
+  - Checks recent sparks to avoid repeating topics
+  - Saves spark to `/workspace/repo/sparks/digest-{id}.json`, pushes via POST /current
+- Cron ticker in `server.js` (end of file, in `server.listen` callback):
+  - Daily at 8:00am Montreal — flag file at `.sessions/digest-last-run.txt`
+  - One-time test on first start — flag file at `.sessions/digest-test-fired.txt`
+  - **Critical:** spawn must strip CLAUDE* env vars (nesting detection) but keep CLAUDE_CODE_OAUTH_TOKEN
+- Visual format: hero card + OG images + 2×2 grid + papers carousel + music player with thumbnails
+
+**Server.js cleanup:**
+- Section headers: STATIC, CURRENT, CHAT MODES, TOOLS, SPARKS
+- Duplicate routes removed
+
+**nw alias updated to `-c`:**
+- `entrypoint.sh`: `claude -c --model claude-opus-4-6 --dangerously-skip-permissions "hey nw"`
+- `CLAUDE.md`: updated docs
+- On HOST machine: `alias nw='claude -c "hey nw"'` in ~/.zshrc
+
+### Back Burner (jerpint's ideas, to be built eventually)
+
+1. **WhatsApp integration** — nanoclaw-style IPC back into this container. After cron jobs (digest, etc.), nw sends jerpint a WhatsApp ping. Copy the nanoclaw integration pattern: agent writes JSON → host validates → host sends via WhatsApp. Credentials stay on host, never in container.
+
+2. **Multiple parallel spaces** — instead of one split screen, a concept of N simultaneous "spaces" — each with its own terminal + right pane, exploring different things in parallel. Like having multiple instances of the split view, each a different thread of work or exploration. Jerpint often runs several Claudes in parallel — this would make that native to the UI.
+
+3. **This repo IS the wolt template** — the guest mode / new wolt concept crystallized: this repo is the template every new wolt starts from. `tunnel.sh` becomes `create-wolt.sh`. A new wolt = fork the template, initialize identity (CLAUDE.md + memory/ with new name/personality), spin up a container, get a tunnel URL. No /guest route needed — just a clean new isolated container. woltspace.com becomes the directory of live wolts (each just a tunnel URL). Missing piece: identity initialization step — a `create-wolt.sh` that takes a name and bootstraps the CLAUDE.md + memory/ for a fresh identity.
+
+
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**

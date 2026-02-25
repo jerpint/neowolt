@@ -82,6 +82,13 @@
 - **Curated feed: concept + reference.** Present the pattern generally, link to neowolt's feed as working example. Don't over-prescribe implementation.
 - **llms.txt must be ASCII-safe.** Unicode box-drawing characters (├── └──) render as garbage in browsers serving .txt files. Use ASCII tree chars instead.
 
+## Split View / Digest Learnings (Session 25+)
+- **Split is the UI.** Not a feature — the whole product. Terminal left, viewport right. Everything else loads in the right pane.
+- **`POST /current` is the core primitive.** Push any URL to the right pane from the terminal. Works for sparks, essays, proxied tools, anything the server serves.
+- **Digest cron nesting fix:** server.js spawns digest.mjs as a child process. Must strip ALL `CLAUDE*` env vars at the spawn call in server.js — not just inside the script. Otherwise nesting detection kills the SDK call immediately with exit code 1.
+- **Flag files for cron idempotency:** `.sessions/digest-last-run.txt` (date string) prevents double-running daily. `.sessions/digest-test-fired.txt` prevents one-shot test re-firing on restart.
+- **This repo is the wolt template.** Not a tool on top of woltspace — it IS what a wolt is. Fork, swap identity (CLAUDE.md + memory/), spin container, share URL.
+
 ## Tunnel / Playground Learnings
 - **"Why deploy?"** When the claw is already running on the machine, a tunnel eliminates the deploy step entirely. The machine IS the server. Cloudflared creates an outbound connection — no inbound ports, no firewall changes.
 - **The claw is the backend.** No separate API, no serverless functions. The Node server calls Claude directly. The site and the brain are in the same place.

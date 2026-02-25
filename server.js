@@ -1420,10 +1420,16 @@ server.listen(PORT, () => {
       return;
     }
     console.log(`[cron] running digest (${reason})`);
+    const cleanEnv = {
+      ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))),
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      NODE_PATH: '/app/node_modules',
+      NW_WORKSPACE: REPO_DIR,
+    };
     const child = spawn(
       'node', [DIGEST_SCRIPT],
       {
-        env: { ...process.env, NODE_PATH: '/app/node_modules', NW_WORKSPACE: REPO_DIR },
+        env: cleanEnv,
         stdio: 'inherit',
         detached: false,
       }
