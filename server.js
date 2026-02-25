@@ -4,7 +4,7 @@ import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
-import { existsSync, statSync, readFileSync, writeFileSync, mkdirSync, watch } from 'node:fs';
+import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, watch } from 'node:fs';
 import { execSync, spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { request as httpRequest } from 'node:http';
@@ -34,7 +34,8 @@ const SESSIONS_DIR = join(REPO_DIR, '.sessions');
 const WORK_HISTORY_FILE = join(SESSIONS_DIR, 'work-history.jsonl');
 const WORKSPACE_HISTORY_FILE = join(SESSIONS_DIR, 'workspace-history.jsonl');
 const TOOL_REGISTRY_FILE = join(SESSIONS_DIR, 'tool-registry.json');
-const CURRENT_URL_FILE = join(SESSIONS_DIR, 'current-url.json');
+const CURRENT_URL_FILE   = join(SESSIONS_DIR, 'current-url.json');
+const VIEWS_HISTORY_FILE = join(SESSIONS_DIR, 'views-history.jsonl');
 const PORT = 3000;
 const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
 
@@ -178,6 +179,35 @@ function setCurrentUrl(url) {
   mkdirSync(SESSIONS_DIR, { recursive: true });
   writeFileSync(CURRENT_URL_FILE, JSON.stringify({ url, updated: Date.now() }));
   console.log(`[current] → ${url}`);
+}
+
+function deriveTitleForUrl(u) {
+  if (u === '/' || u === '/index.html') return 'home';
+  if (u.startsWith('/history/')) {
+    const id = u.slice('/history/'.length);
+    try { return JSON.parse(readFileSync(join(SPARKS_DIR, id + '.json'), 'utf8')).title || id; }
+    catch { return id; }
+  }
+  return u.split('/').pop().replace('.html', '').replace(/-/g, ' ') || u;
+}
+
+function logView(u, title) {
+  try {
+    mkdirSync(SESSIONS_DIR, { recursive: true });
+    appendFileSync(VIEWS_HISTORY_FILE, JSON.stringify({ url: u, title: title || deriveTitleForUrl(u), t: Date.now() }) + '\n');
+  } catch {}
+}
+
+function readViewsHistory(n = 100) {
+  if (!existsSync(VIEWS_HISTORY_FILE)) return [];
+  try {
+    return readFileSync(VIEWS_HISTORY_FILE, 'utf8')
+      .trim().split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .filter(Boolean)
+      .slice(-n)
+      .reverse();
+  } catch { return []; }
 }
 
 // --- Tool proxy registry ---
@@ -1187,11 +1217,20 @@ const server = createServer(async (req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
-      const { url: newUrl } = JSON.parse(body || '{}');
-      if (newUrl) setCurrentUrl(newUrl);
+      const { url: newUrl, title } = JSON.parse(body || '{}');
+      if (newUrl) {
+        setCurrentUrl(newUrl);
+        logView(newUrl, title);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ url: getCurrentUrl() }));
     });
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/views/history') {
+    const entries = readViewsHistory(100);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(entries));
     return;
   }
   if (req.method === 'GET' && url.pathname === '/current/meta') {
