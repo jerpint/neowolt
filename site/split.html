@@ -120,7 +120,7 @@
       <button id="btn-back"    onclick="goBack()"            title="Back" disabled>◁</button>
       <button id="btn-hist"    onclick="toggleHist()"        title="View history">≡</button>
       <button id="btn-term"    onclick="toggleFull('left')"  title="Fullscreen terminal">⬛ term</button>
-      <button id="btn-preview" onclick="toggleFull('right')" title="Fullscreen preview">⬛ preview</button>
+      <button id="btn-preview" onclick="toggleFull('right')" title="Session view">⬛ session</button>
     </div>
   </div>
 
@@ -341,12 +341,12 @@
         if (split.classList.contains(cls)) {
           split.classList.remove(cls);
           btnTerm.textContent    = '⬛ term';
-          btnPreview.textContent = '⬛ preview';
+          btnPreview.textContent = '⬛ session';
         } else {
           split.classList.remove(other);
           split.classList.add(cls);
           btnTerm.textContent    = side === 'left'  ? '◧ split' : '⬛ term';
-          btnPreview.textContent = side === 'right' ? '◨ split' : '⬛ preview';
+          btnPreview.textContent = side === 'right' ? '◨ split' : '⬛ session';
         }
       }
       setTimeout(() => fitAddon.fit(), 250);
