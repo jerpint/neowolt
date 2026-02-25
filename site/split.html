@@ -99,6 +99,12 @@
     #terminal { flex: 1; overflow: hidden; }
     .xterm { height: 100%; }
 
+    @media (max-width: 768px) {
+      #left        { width: 0 !important; overflow: hidden; }
+      #right       { width: 100% !important; }
+      #drag-handle { display: none; }
+    }
+
     #preview { flex: 1; border: none; background: #0d1117; display: block; }
   </style>
 </head>
