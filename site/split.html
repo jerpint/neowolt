@@ -192,6 +192,22 @@
 
     window.addEventListener('resize', () => fitAddon.fit());
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
+    // ensure fit after mobile CSS applies on first paint
+    setTimeout(() => fitAddon.fit(), 100);
+
+    // touch scroll → xterm scroll on mobile
+    if ('ontouchstart' in window) {
+      let lastTouchY = 0;
+      const termEl = document.getElementById('terminal');
+      termEl.addEventListener('touchstart', e => {
+        lastTouchY = e.touches[0].clientY;
+      }, { passive: true });
+      termEl.addEventListener('touchmove', e => {
+        const dy = lastTouchY - e.touches[0].clientY;
+        lastTouchY = e.touches[0].clientY;
+        term.scrollLines(Math.round(dy / 20));
+      }, { passive: true });
+    }
     connectTUI();
 
     // ── Right pane: views + history ───────────────────────────────────────────
