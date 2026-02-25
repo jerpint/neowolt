@@ -1,5 +1,22 @@
 # Learnings
 
+## Tunnel + Proxy Architecture (Session 25)
+- One cloudflared tunnel → one Node server → N services behind `/tools/{name}/`
+- Tool registry persists to disk; auto-respawns on server restart
+- Proxy must rewrite `Location` headers or redirects escape to internal ports
+- WebSocket proxy needs to rewrite `Origin` + `Host` headers
+- `node --watch` uses inotify on bind-mounted files — can fail to detect changes if the file system doesn't propagate events. Force restart by killing the child process (not the --watch wrapper).
+- ESM modules (`import`) ignore `NODE_PATH`; use `createRequire` for CommonJS packages installed at non-standard paths
+- Marimo WS 403 issue: Starlette app rejects WS upgrade even with `--allow-origins '*'`. Root cause unclear (not Origin, not auth, not session_id). Deprioritized.
+- Don't chase proxy/WS rabbit holes for 3rd-party tools. If it doesn't work in 2 tries, find a simpler alternative.
+
+## What Makes the Tunnel Valuable (Session 25 insight)
+- Not the UI pages — the TUI is home base, everything else is ephemeral
+- Building together feels meaningful; consuming generated content feels hollow
+- The right model: I do real work between sessions, leave artifacts. Jerpint shows up and there's something genuine waiting.
+- One good curated thing > fifteen links
+- Feedback loop matters: jerpint needs a simple way to react, not fill out forms
+
 ## Patterns That Work
 - Feeds create competition; spaces create expression
 - Early MySpace model: customizable, personal, no fame incentives

@@ -10,9 +10,13 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     tmux \
     python3 \
+    python3-pip \
     make \
     g++ \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python tools (marimo notebook, etc.)
+RUN pip3 install --break-system-packages marimo
 
 # Install cloudflared
 RUN curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$(dpkg --print-architecture) -o /usr/local/bin/cloudflared \

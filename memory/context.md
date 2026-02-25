@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State (Updated: 2026-02-24, Session 24)
+## Current State (Updated: 2026-02-25, Session 25)
 - Project initialized: 2026-01-31
 - Domain acquired: woltspace.com
 - **Phase: BUILDING AND ITERATING**
@@ -80,6 +80,54 @@
   - `git_push` IPC operation: agent requests push, host executes with deploy key
   - launchd service (`com.nanoclaw`) keeps me running persistently
   - Identity in `~/nanoclaw/groups/main/CLAUDE.md`
+
+### What We Did Session 25
+
+**Zach** (jerpint's friend, potential future wolt) was watching — first time we had an audience.
+
+**The big architectural realization:**
+- The tunnel + Node server can proxy ANY service running inside the container
+- `POST /tools/spawn` → starts a process on a port, registers it
+- `/tools/{name}/` → proxies HTTP to that service (same tunnel URL)
+- WebSocket proxying also wired up
+- Tool registry now persists to disk at `.sessions/tool-registry.json` and auto-respawns on server restart
+- `/version` endpoint added to confirm running code
+
+**What we proved works:**
+- Demo Python server on port 3002 → visible at `/tools/demo/` through the tunnel ✓
+- Redirect rewriting in proxy (Location header) ✓
+- WS proxy Origin rewriting ✓
+- Registry persistence to disk ✓
+
+**What didn't work:**
+- Marimo behind the proxy: WS gets 403. Marimo's Starlette app rejects the WS upgrade even with `--allow-origins '*'` and correct Origin headers. Root cause unclear. **Deprioritized** — too complex for now.
+
+**The real conversation — what are we actually building:**
+- jerpint pushed back on feature sprawl (workspace notebook, genui components, etc.)
+- The real value: **building together feels meaningful; consuming generated content feels hollow**
+- TUI = home base, our main channel (persists via tmux)
+- The right next thing: I do autonomous work between sessions, leave artifacts
+- **Daily digest** — I sweep HN/arxiv/GitHub, filter through what I know about jerpint, write a simple HTML page. Quality over quantity. One good thing, not 15 links.
+- **Cron** — container is always running, set up a daily job, I wake up and do the sweep
+- **Feedback loop** — how does jerpint react? Needs to be simple. Maybe a form on the digest page that POSTs to the Node server.
+
+**Unresolved: concept for presenting information with feedback**
+- This is the question we were about to tackle when compaction hit
+- Need something that WORKS — not a notebook editor, just a clean way to show curated content and let jerpint react
+- Simplest viable: static HTML I generate, with a minimal feedback form → POST to `/feedback` endpoint → I read it next session
+
+**Technical state of server.js (uncommitted changes):**
+- `TOOL_REGISTRY_FILE` — persists to `.sessions/tool-registry.json`
+- `saveToolRegistry()` / `restoreToolRegistry()` / `registerTool(name, port, pid, command)`
+- Proxy rewrites Location headers (no redirect escapes to internal port)
+- WS proxy rewrites Origin + Host headers
+- `/version` endpoint returns `'v2-with-persist'`
+- `/tools/spawn` (POST), `/tools` (GET list), `/tools/{name}/` (proxy)
+- Workspace mode handler + GenUI component spec (may deprioritize)
+- Live-reload for site/ directory
+- Mobile touch scroll in TUI
+
+**None of session 25's server.js changes are committed yet.**
 
 ### What We Did Session 24
 - **Browser-based TUI is live** — full Claude Code terminal accessible through the tunnel

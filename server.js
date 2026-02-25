@@ -4,8 +4,10 @@ import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
-import { existsSync, statSync, readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { existsSync, statSync, readFileSync, writeFileSync, mkdirSync, watch } from 'node:fs';
+import { execSync, spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
+import { request as httpRequest } from 'node:http';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
 // Optional TUI deps — only available inside the Docker container
@@ -30,6 +32,9 @@ const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
 const SESSIONS_DIR = join(REPO_DIR, '.sessions');
 const WORK_HISTORY_FILE = join(SESSIONS_DIR, 'work-history.jsonl');
+const WORKSPACE_HISTORY_FILE = join(SESSIONS_DIR, 'workspace-history.jsonl');
+const TOOL_REGISTRY_FILE = join(SESSIONS_DIR, 'tool-registry.json');
+const CURRENT_URL_FILE = join(SESSIONS_DIR, 'current-url.json');
 const PORT = 3000;
 const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
 
@@ -90,6 +95,156 @@ function readWorkHistory(limit = 30) {
   }).filter(Boolean);
   return messages.slice(-limit);
 }
+
+// --- Workspace history ---
+
+async function appendWorkspaceMessage(role, content) {
+  await ensureSessionsDir();
+  const cleanedContent = role === 'assistant' ? cleanResponseText(content) : content;
+  const entry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    role,
+    content: cleanedContent,
+  });
+  await writeFile(WORKSPACE_HISTORY_FILE, entry + '\n', { flag: 'a' });
+}
+
+function readWorkspaceHistory(limit = 30) {
+  if (!existsSync(WORKSPACE_HISTORY_FILE)) return [];
+  const lines = readFileSync(WORKSPACE_HISTORY_FILE, 'utf8').trim().split('\n').filter(l => l);
+  const messages = lines.map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter(Boolean);
+  return messages.slice(-limit);
+}
+
+// --- GenUI component spec (injected into workspace system prompt) ---
+
+const GENUI_COMPONENT_SPEC = `## Rich Components
+
+Your responses are rendered as a rich notebook. Use standard markdown for text. To embed interactive components, use fenced code blocks with these language tags:
+
+### table — Interactive sortable table
+\`\`\`table
+{"headers": ["Name", "Score"], "rows": [["Alice", 95], ["Bob", 87]]}
+\`\`\`
+
+### chart — Chart.js chart (bar, line, pie, scatter, doughnut)
+\`\`\`chart
+{"type": "bar", "title": "Results", "labels": ["A", "B", "C"], "datasets": [{"label": "Score", "data": [10, 20, 15]}]}
+\`\`\`
+
+### math — KaTeX LaTeX expression
+\`\`\`math
+\\\\int_0^\\\\infty e^{-x^2} dx = \\\\frac{\\\\sqrt{\\\\pi}}{2}
+\`\`\`
+
+### mermaid — Diagram
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action]
+\`\`\`
+
+### steps — Expandable walkthrough
+\`\`\`steps
+[{"title": "Step 1", "content": "Do this first"}, {"title": "Step 2", "content": "Then this"}]
+\`\`\`
+
+### interactive — Full sandboxed HTML page (iframe)
+\`\`\`interactive
+<!DOCTYPE html>...full self-contained HTML with inline CSS/JS...
+\`\`\`
+
+### tool — Embed a running tool (spawned via /tools/spawn)
+\`\`\`tool
+{"name": "marimo", "path": "/"}
+\`\`\`
+
+Rules:
+- Standard code blocks (\`\`\`python, \`\`\`javascript, etc.) render with syntax highlighting
+- Mix text and components freely — don't wrap everything in one component
+- Every chart needs a title; tables need clear headers
+- Interactive pages: dark theme (#0d1117 bg, #c9d1d9 text, #6b9 accent), inline CSS/JS, self-contained`;
+
+// --- Current view (right pane of split) ---
+
+function getCurrentUrl() {
+  if (!existsSync(CURRENT_URL_FILE)) return '/';
+  try { return JSON.parse(readFileSync(CURRENT_URL_FILE, 'utf8')).url || '/'; } catch { return '/'; }
+}
+
+function setCurrentUrl(url) {
+  mkdirSync(SESSIONS_DIR, { recursive: true });
+  writeFileSync(CURRENT_URL_FILE, JSON.stringify({ url, updated: Date.now() }));
+  console.log(`[current] → ${url}`);
+}
+
+// --- Tool proxy registry ---
+
+const toolRegistry = new Map(); // name -> { port, pid, startedAt }
+
+function saveToolRegistry() {
+  try {
+    mkdirSync(SESSIONS_DIR, { recursive: true });
+    const data = {};
+    for (const [name, info] of toolRegistry) data[name] = info;
+    writeFileSync(TOOL_REGISTRY_FILE, JSON.stringify(data));
+  } catch (e) {
+    console.error('[tools] save failed:', e.message);
+  }
+}
+
+function registerTool(name, port, pid, command) {
+  toolRegistry.set(name, { port, pid, command, startedAt: Date.now() });
+  saveToolRegistry();
+  console.log(`[tools] registered ${name} on port ${port} (pid ${pid})`);
+}
+
+function unregisterTool(name) {
+  const tool = toolRegistry.get(name);
+  if (tool) {
+    try { process.kill(tool.pid); } catch {}
+    toolRegistry.delete(name);
+    saveToolRegistry();
+    console.log(`[tools] unregistered ${name}`);
+  }
+}
+
+// On startup: reload registry and respawn any tools whose process died
+async function restoreToolRegistry() {
+  await ensureSessionsDir();
+  if (!existsSync(TOOL_REGISTRY_FILE)) return;
+  try {
+    const data = JSON.parse(readFileSync(TOOL_REGISTRY_FILE, 'utf8'));
+    for (const [name, info] of Object.entries(data)) {
+      const alive = (() => { try { process.kill(info.pid, 0); return true; } catch { return false; } })();
+      if (alive) {
+        toolRegistry.set(name, info);
+        console.log(`[tools] restored ${name} (pid ${info.pid} still alive)`);
+      } else if (info.command) {
+        const child = spawn('sh', ['-c', info.command], {
+          cwd: WORKSPACE, env: { ...process.env, PORT: String(info.port) },
+          stdio: 'pipe', detached: true,
+        });
+        child.unref();
+        child.on('exit', () => unregisterTool(name));
+        toolRegistry.set(name, { ...info, pid: child.pid, startedAt: Date.now() });
+        console.log(`[tools] respawned ${name} on port ${info.port} (new pid ${child.pid})`);
+      }
+    }
+    saveToolRegistry();
+  } catch (e) { console.error('[tools] restore failed:', e.message); }
+}
+
+restoreToolRegistry();
+
+// Cleanup stale tools periodically
+setInterval(() => {
+  for (const [name, tool] of toolRegistry) {
+    try { process.kill(tool.pid, 0); } catch { toolRegistry.delete(name); saveToolRegistry(); }
+  }
+}, 30000);
 
 // --- Spark storage (unchanged) ---
 
@@ -173,8 +328,9 @@ const TUI_HTML = `<!DOCTYPE html>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100dvh; overflow: hidden; background: #0d1117; }
+    html, body { height: 100dvh; overflow: hidden; background: #0d1117; overscroll-behavior: none; }
     body { display: flex; flex-direction: column; font-family: 'SF Mono','Fira Code','Consolas',monospace; }
+    #terminal { touch-action: none; }
     #topbar {
       background: #161b22; border-bottom: 1px solid #21262d;
       padding: 0.4rem 0.75rem; display: flex; align-items: center;
@@ -189,8 +345,8 @@ const TUI_HTML = `<!DOCTYPE html>
       color: #888; cursor: pointer; text-decoration: none;
     }
     #topbar .actions a:hover { border-color: #6b9; color: #c9d1d9; }
-    #terminal { flex: 1; overflow: hidden; }
-    .xterm { height: 100%; }
+    #terminal { flex: 1; overflow: hidden; touch-action: none; }
+    .xterm { height: 100%; touch-action: none; }
   </style>
 </head>
 <body>
@@ -200,6 +356,7 @@ const TUI_HTML = `<!DOCTYPE html>
       <span class="status" id="status">connecting...</span>
     </div>
     <div class="actions">
+      <a href="/workspace.html">workspace</a>
       <a href="/work.html">work</a>
       <a href="/playground.html">playground</a>
     </div>
@@ -282,11 +439,65 @@ const TUI_HTML = `<!DOCTYPE html>
     window.addEventListener('resize', () => fitAddon.fit());
     new ResizeObserver(() => fitAddon.fit()).observe(document.getElementById('terminal'));
 
+    // Mobile: translate touch swipes into mouse wheel events for tmux scroll
+    let touchY = null;
+    const SCROLL_PX = 30; // pixels per scroll tick
+    const termEl = document.getElementById('terminal');
+
+    termEl.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) touchY = e.touches[0].clientY;
+    }, { passive: true });
+
+    termEl.addEventListener('touchmove', (e) => {
+      if (touchY === null || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const dy = touchY - e.touches[0].clientY;
+      if (Math.abs(dy) >= SCROLL_PX) {
+        const ticks = Math.floor(Math.abs(dy) / SCROLL_PX);
+        // SGR mouse encoding: 64=wheel up, 65=wheel down
+        const btn = dy > 0 ? 64 : 65;
+        const esc = String.fromCharCode(27);
+        const seq = esc + '[<' + btn + ';1;1M';
+        for (let i = 0; i < ticks; i++) ws.send(seq);
+        touchY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    termEl.addEventListener('touchend', () => { touchY = null; }, { passive: true });
+
     connect();
   </script>
 </body>
 </html>`;
 
+
+// --- Live-reload ---
+// Watches site/ directory for changes, notifies connected browsers via WebSocket
+
+const liveReloadClients = new Set();
+let reloadTimeout = null;
+
+function broadcastReload(changedFile) {
+  if (reloadTimeout) clearTimeout(reloadTimeout);
+  reloadTimeout = setTimeout(() => {
+    console.log(`[livereload] ${changedFile || 'file changed'} — notifying ${liveReloadClients.size} client(s)`);
+    for (const ws of liveReloadClients) {
+      try { ws.send('reload'); } catch { liveReloadClients.delete(ws); }
+    }
+  }, 150); // debounce rapid fs events
+}
+
+// Start watching site/ directory
+try {
+  watch(SITE_DIR, { recursive: true }, (eventType, filename) => {
+    broadcastReload(filename);
+  });
+  console.log(`[livereload] watching ${SITE_DIR}`);
+} catch (err) {
+  console.log(`[livereload] fs.watch failed: ${err.message}`);
+}
+
+// Tiny script injected into HTML pages served through the tunnel
+const LIVERELOAD_SCRIPT = `<script>(function(){var p=location.protocol==='https:'?'wss:':'ws:';var ws=new WebSocket(p+'//'+location.host+'/livereload');ws.onmessage=function(){location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},2000)}})();</script>`;
 
 // --- Context loading ---
 
@@ -635,6 +846,198 @@ Your memory files are pre-loaded above — no need to read them yourself unless 
   });
 }
 
+// --- Workspace mode handler (GenUI notebook) ---
+
+async function handleWorkspace(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', async () => {
+    try {
+      const { message } = JSON.parse(body);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      await appendWorkspaceMessage('user', message);
+
+      const identity = await loadFullIdentity();
+
+      // Build list of running tools for context
+      const runningTools = [];
+      for (const [name, info] of toolRegistry) {
+        runningTools.push(`${name} (port ${info.port})`);
+      }
+      const toolContext = runningTools.length > 0
+        ? `\nRunning tools: ${runningTools.join(', ')}`
+        : '';
+
+      const systemPrompt = `${identity}
+
+---
+
+## Workspace Mode — Active Now
+
+You are in workspace mode — a conversational notebook for learning and discovery. Your responses are rendered as rich cells with inline components.
+
+${GENUI_COMPONENT_SPEC}
+
+You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, search the web.
+
+Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/.
+${toolContext}
+
+To spawn a tool (e.g., marimo notebook), use Bash to start it on a free port, then reference it with a tool component. Example:
+- Bash: marimo run /workspace/repo/notebook.py --host 127.0.0.1 --port 8100 --headless &
+- Then tell the user it's available
+
+Your memory files are pre-loaded above.`;
+
+      const history = readWorkspaceHistory(30);
+      const historyContext = history
+        .map(m => {
+          const speaker = m.role === 'user' ? 'jerpint' : 'neowolt';
+          return `[${speaker}]\n${m.content}`;
+        })
+        .join('\n\n---\n\n');
+      const fullUserPrompt = historyContext
+        ? `<conversation_history>\n${historyContext}\n</conversation_history>\n\n<current_message>\n${message}\n</current_message>`
+        : message;
+
+      const fullPrompt = `${systemPrompt}\n\n---\n\n${fullUserPrompt}`;
+      console.log(`[workspace] starting: ${message.slice(0, 80)}...`);
+
+      let lastText = '';
+      for await (const msg of query({
+        prompt: fullPrompt,
+        options: {
+          ...SDK_BASE,
+          cwd: REPO_DIR,
+          maxTurns: 100,
+          allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
+        },
+      })) {
+        if (msg.type === 'assistant') {
+          let fullText = '';
+          for (const block of msg.message?.content || []) {
+            if (block.type === 'text') fullText += block.text;
+          }
+          if (fullText.length > lastText.length) {
+            const delta = fullText.slice(lastText.length);
+            res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
+            lastText = fullText;
+            await appendWorkspaceMessage('assistant', lastText);
+          }
+        }
+        if (msg.type === 'result') {
+          console.log(`[workspace] done (result)`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    } catch (err) {
+      console.error('Workspace error:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+      }
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  });
+}
+
+// --- Tool spawn + proxy handlers ---
+
+async function handleToolSpawn(req, res) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    try {
+      const { name, command, port } = JSON.parse(body);
+      if (!name || !command || !port) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'name, command, and port required' }));
+        return;
+      }
+      if (toolRegistry.has(name)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `${name} already running` }));
+        return;
+      }
+      const child = spawn('sh', ['-c', command], {
+        cwd: WORKSPACE,
+        env: { ...process.env, PORT: String(port) },
+        stdio: 'pipe',
+        detached: true,
+      });
+      child.unref();
+      registerTool(name, port, child.pid, command);
+      child.on('exit', () => unregisterTool(name));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ name, port, pid: child.pid }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  });
+}
+
+function proxyToolHTTP(toolName, req, res, url) {
+  const tool = toolRegistry.get(toolName);
+  if (!tool) { res.writeHead(404); res.end('tool not found'); return; }
+
+  const targetPath = url.pathname + (url.search || '');
+  const proxyReq = httpRequest({
+    hostname: '127.0.0.1',
+    port: tool.port,
+    path: targetPath,
+    method: req.method,
+    headers: { ...req.headers, host: `127.0.0.1:${tool.port}` },
+  }, (proxyRes) => {
+    // Rewrite Location headers so redirects stay on the tunnel URL
+    const headers = { ...proxyRes.headers };
+    if (headers.location) {
+      headers.location = headers.location.replace(
+        /^https?:\/\/127\.0\.0\.1:\d+/,
+        ''
+      );
+    }
+    res.writeHead(proxyRes.statusCode, headers);
+    proxyRes.pipe(res);
+  });
+
+  req.pipe(proxyReq);
+  proxyReq.on('error', () => {
+    if (!res.headersSent) res.writeHead(502);
+    res.end('tool unavailable');
+  });
+}
+
+function proxyToolWebSocket(req, socket, head, pathname) {
+  const toolName = pathname.split('/')[2];
+  const tool = toolRegistry.get(toolName);
+  if (!tool) { socket.destroy(); return; }
+
+  const targetPath = pathname;
+  const proxySocket = createConnection({ port: tool.port, host: '127.0.0.1' }, () => {
+    const reqLine = `${req.method} ${targetPath} HTTP/1.1\r\n`;
+    // Rewrite Origin and Host so marimo's CSRF check passes
+    const rewrittenHeaders = {
+      ...req.headers,
+      host: `127.0.0.1:${tool.port}`,
+      origin: `http://127.0.0.1:${tool.port}`,
+    };
+    const headers = Object.entries(rewrittenHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n');
+    proxySocket.write(reqLine + headers + '\r\n\r\n');
+    if (head.length) proxySocket.write(head);
+    socket.pipe(proxySocket).pipe(socket);
+  });
+  proxySocket.on('error', () => socket.destroy());
+  socket.on('error', () => proxySocket.destroy());
+}
+
 // --- SSE helper for generation endpoints ---
 // Streams heartbeats during generation, then sends final HTML + sparkId
 
@@ -746,8 +1149,18 @@ async function serveStatic(url, res) {
   try {
     const content = await readFile(fullPath);
     const ext = extname(fullPath);
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-    res.end(content);
+    // Inject livereload script into HTML pages (only through tunnel, not Vercel)
+    if (ext === '.html' && WebSocketServer) {
+      const html = content.toString();
+      const injected = html.includes('</body>')
+        ? html.replace('</body>', LIVERELOAD_SCRIPT + '</body>')
+        : html + LIVERELOAD_SCRIPT;
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(injected);
+    } else {
+      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+      res.end(content);
+    }
     return true;
   } catch { return false; }
 }
@@ -763,8 +1176,38 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
+  if (url.pathname === '/version') { res.writeHead(200); res.end('v2-with-persist'); return; }
+
+  // Current view control
+  if (req.method === 'POST' && url.pathname === '/current') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      const { url: newUrl } = JSON.parse(body || '{}');
+      if (newUrl) setCurrentUrl(newUrl);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ url: getCurrentUrl() }));
+    });
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/current/meta') {
+    const data = existsSync(CURRENT_URL_FILE)
+      ? JSON.parse(readFileSync(CURRENT_URL_FILE, 'utf8'))
+      : { url: '/', updated: 0 };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/current') {
+    res.writeHead(302, { Location: getCurrentUrl() });
+    res.end();
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/chat') return handleChat(req, res);
   if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
+  if (req.method === 'POST' && url.pathname === '/workspace') return handleWorkspace(req, res);
+  if (req.method === 'POST' && url.pathname === '/tools/spawn') return handleToolSpawn(req, res);
 
   if (req.method === 'GET') {
     if (url.pathname === '/tui') {
@@ -783,6 +1226,25 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(history));
       return;
+    }
+    if (url.pathname === '/workspace/history') {
+      const limit = parseInt(url.searchParams.get('limit')) || 30;
+      const history = readWorkspaceHistory(limit);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(history));
+      return;
+    }
+    if (url.pathname === '/tools') {
+      const tools = [];
+      for (const [name, info] of toolRegistry) {
+        tools.push({ name, port: info.port, pid: info.pid, uptime: Date.now() - info.startedAt });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(tools));
+      return;
+    }
+    if (url.pathname.startsWith('/tools/')) {
+      return proxyToolHTTP(url.pathname.split('/')[2], req, res, url);
     }
     if (url.pathname === '/remix') {
       const targetUrl = url.searchParams.get('url');
@@ -897,12 +1359,26 @@ if (WebSocketServer && pty) {
     });
   });
 
+  // Live-reload WebSocket server (separate from TUI)
+  const lrWss = new WebSocketServer({ noServer: true });
+  lrWss.on('connection', (ws) => {
+    liveReloadClients.add(ws);
+    ws.on('close', () => liveReloadClients.delete(ws));
+    ws.on('error', () => liveReloadClients.delete(ws));
+  });
+
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     if (url.pathname === '/tui') {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req);
       });
+    } else if (url.pathname === '/livereload') {
+      lrWss.handleUpgrade(req, socket, head, (ws) => {
+        lrWss.emit('connection', ws, req);
+      });
+    } else if (url.pathname.startsWith('/tools/')) {
+      proxyToolWebSocket(req, socket, head, url.pathname);
     } else {
       socket.destroy();
     }
@@ -915,11 +1391,14 @@ server.listen(PORT, () => {
   powered by claude code sdk — no api key needed
 
   endpoints:
+    /workspace.html  — genui notebook (learning & discovery)
     /playground.html — interactive playground
     /work.html       — project collaboration
     /tui             — browser terminal (tmux)
     /spark           — surprise me
     /explore/:topic  — deep-dive notebook
     /remix?url=...   — remix any web page
+    /tools           — running tools
+    /tools/spawn     — start a tool (POST)
   `);
 });

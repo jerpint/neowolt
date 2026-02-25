@@ -31,7 +31,8 @@
       "Bash(docker build:*)",
       "Bash(docker rm:*)",
       "Bash(lsof:*)",
-      "Bash(ssh-keygen:*)"
+      "Bash(ssh-keygen:*)",
+      "Bash(docker exec neowolt-playground bash -c 'pkill cloudflared; sleep 1; cloudflared tunnel --url http://localhost:3000 &')"
     ]
   },
   "defaultMode": "acceptEdits"

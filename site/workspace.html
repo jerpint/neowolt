@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace · Neowolt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <!-- Prism.js syntax highlighting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+  <!-- KaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: #0d1117;
+      color: #c9d1d9;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #topbar {
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    #topbar .title { color: #6b9; font-weight: 600; }
+    #topbar .mode { color: #555; font-size: 0.7rem; }
+    #topbar .actions { display: flex; gap: 0.5rem; }
+
+    #topbar .actions a {
+      font-family: inherit;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.7rem;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      color: #888;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    #topbar .actions a:hover { border-color: #6b9; color: #c9d1d9; }
+
+    #notebook {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    #cells {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+
+    /* Cell styles */
+    .cell { margin-bottom: 1.5rem; }
+
+    .cell .cell-label {
+      font-size: 0.65rem;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+
+    .cell.user .cell-content { color: #6b9; }
+    .cell.assistant .cell-content { color: #c9d1d9; }
+
+    .cell.queued { opacity: 0.4; }
+    .cell.queued .cell-content::before { content: '\u23F3 '; font-size: 0.75em; }
+
+    /* Markdown text styles */
+    .genui-text { margin-bottom: 0.5rem; }
+    .genui-text h1 { font-size: 1.3rem; color: #fff; margin: 1rem 0 0.5rem; }
+    .genui-text h2 { font-size: 1.1rem; color: #6b9; margin: 0.8rem 0 0.4rem; }
+    .genui-text h3 { font-size: 1rem; color: #8bd; margin: 0.6rem 0 0.3rem; }
+    .genui-text p { margin-bottom: 0.6rem; }
+    .genui-text ul, .genui-text ol { margin: 0.4rem 0 0.6rem 1.5rem; }
+    .genui-text li { margin-bottom: 0.25rem; }
+    .genui-text strong { color: #fff; }
+    .genui-text a { color: #6b9; text-decoration: none; }
+    .genui-text a:hover { text-decoration: underline; }
+    .genui-text code {
+      background: #252a30;
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    .genui-text blockquote {
+      border-left: 3px solid #6b9;
+      padding-left: 0.75rem;
+      color: #999;
+      margin: 0.5rem 0;
+    }
+
+    /* Code blocks */
+    .genui-code {
+      margin: 0.75rem 0;
+      position: relative;
+    }
+    .genui-code pre {
+      background: #161b22 !important;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .genui-code .lang-tag {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.5rem;
+      font-size: 0.6rem;
+      color: #555;
+      text-transform: uppercase;
+    }
+    .genui-code .copy-btn {
+      position: absolute;
+      top: 0.4rem;
+      right: 3rem;
+      font-family: inherit;
+      font-size: 0.6rem;
+      padding: 0.15rem 0.4rem;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 3px;
+      color: #666;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .genui-code:hover .copy-btn { opacity: 1; }
+    .genui-code .copy-btn:hover { color: #c9d1d9; border-color: #6b9; }
+
+    /* Tables */
+    .genui-table-wrap {
+      margin: 0.75rem 0;
+      overflow-x: auto;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+    }
+    .genui-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .genui-table th {
+      background: #161b22;
+      color: #6b9;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 2px solid #21262d;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .genui-table th:hover { color: #7ca; }
+    .genui-table th .sort-arrow { font-size: 0.65rem; margin-left: 0.3rem; color: #555; }
+    .genui-table td {
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid #21262d;
+    }
+    .genui-table tr:hover td { background: #1c2128; }
+
+    /* Charts */
+    .genui-chart {
+      margin: 0.75rem 0;
+      padding: 1rem;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+    }
+    .genui-chart canvas { max-height: 400px; }
+
+    /* Math */
+    .genui-math {
+      margin: 0.75rem 0;
+      padding: 1rem;
+      text-align: center;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    /* Mermaid */
+    .genui-mermaid {
+      margin: 0.75rem 0;
+      padding: 1rem;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .genui-mermaid svg { max-width: 100%; }
+
+    /* Steps */
+    .genui-steps { margin: 0.75rem 0; }
+    .genui-steps .step-item {
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      margin: 0.4rem 0;
+      overflow: hidden;
+    }
+    .genui-steps .step-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      cursor: pointer;
+      background: #161b22;
+      transition: background 0.15s;
+    }
+    .genui-steps .step-header:hover { background: #1c2128; }
+    .genui-steps .step-number {
+      background: #6b9;
+      color: #0d1117;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .genui-steps .step-title { flex: 1; color: #c9d1d9; font-size: 0.85rem; }
+    .genui-steps .step-toggle { color: #555; font-size: 0.9rem; }
+    .genui-steps .step-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s, padding 0.3s;
+      padding: 0 0.75rem;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+    .genui-steps .step-item.expanded .step-content {
+      max-height: 500px;
+      padding: 0.75rem;
+    }
+
+    /* Interactive iframe */
+    .genui-interactive {
+      margin: 0.75rem 0;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #21262d;
+    }
+    .genui-interactive iframe {
+      width: 100%;
+      height: 500px;
+      border: none;
+      background: #0d1117;
+    }
+    .genui-interactive .iframe-controls {
+      background: #161b22;
+      padding: 0.3rem 0.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .genui-interactive .iframe-controls button {
+      font-family: inherit;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 3px;
+      color: #666;
+      cursor: pointer;
+    }
+    .genui-interactive .iframe-controls button:hover { color: #c9d1d9; border-color: #6b9; }
+
+    /* Tool embed */
+    .genui-tool {
+      margin: 0.75rem 0;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #6b9;
+    }
+    .genui-tool .tool-header {
+      background: #161b22;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.7rem;
+      color: #6b9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .genui-tool iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+      background: #fff;
+    }
+
+    /* Loading placeholder */
+    .genui-loading {
+      padding: 0.75rem 1rem;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      color: #555;
+      font-style: italic;
+      font-size: 0.85rem;
+      animation: pulse 1.5s infinite;
+    }
+
+    /* Input area */
+    #input-area {
+      padding: 0.75rem 1.5rem 1rem;
+      border-top: 1px solid #21262d;
+    }
+    #input-row { display: flex; gap: 0.5rem; }
+    #chat-input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 1rem;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      outline: none;
+      resize: none;
+      min-height: 3rem;
+      max-height: 12rem;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    #chat-input:focus { border-color: #6b9; box-shadow: 0 0 0 1px #6b9; }
+    #chat-input::placeholder { color: #444; }
+
+    #send-btn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 0.7rem 1.5rem;
+      background: #6b9;
+      border: none;
+      border-radius: 6px;
+      color: #0d1117;
+      font-weight: 600;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+    #send-btn:hover { background: #7ca; }
+    #send-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .status { font-size: 0.7rem; color: #444; margin-top: 0.4rem; min-height: 1em; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .thinking { animation: pulse 1.5s infinite; color: #555; }
+
+    #vim-indicator {
+      position: fixed;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      font-size: 0.65rem;
+      color: #444;
+      background: #161b22;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid #21262d;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #vim-indicator.visible { opacity: 1; }
+
+    /* NERDTree navigator */
+    #tree-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #tree-overlay.visible { display: flex; }
+    #tree-container {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 70vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #tree-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #21262d;
+      font-size: 0.75rem;
+      color: #6b9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #tree-header .help { color: #555; font-size: 0.65rem; }
+    #tree-list { flex: 1; overflow-y: auto; padding: 0.5rem 0; }
+    .tree-item {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #888;
+      transition: background 0.1s;
+    }
+    .tree-item:hover { background: #1c2128; }
+    .tree-item.selected {
+      background: #21262d;
+      color: #c9d1d9;
+      border-left: 2px solid #6b9;
+    }
+    .tree-item .icon { font-size: 0.75rem; opacity: 0.6; }
+
+    @media (max-width: 600px) {
+      #input-area { padding: 0.5rem 1rem 0.75rem; }
+      #send-btn { padding: 0.6rem 1rem; font-size: 0.8rem; min-height: 3rem; }
+      #topbar { padding: 0.4rem 0.75rem; }
+      #topbar .mode { display: none; }
+      #cells { padding: 0.75rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <div>
+      <span class="title">nw workspace</span>
+      <span class="mode">learn &middot; discover &middot; build</span>
+    </div>
+    <div class="actions">
+      <a href="/tui">tui</a>
+      <a href="/work.html">work</a>
+      <a href="/playground.html">playground</a>
+    </div>
+  </div>
+
+  <div id="notebook">
+    <div id="cells">
+      <div class="cell assistant">
+        <span class="cell-label">nw</span>
+        <div class="cell-content">
+          <div class="genui-text"><p>workspace mode. rich components, charts, diagrams, math, interactive demos. what do you want to explore?</p></div>
+        </div>
+      </div>
+    </div>
+    <div id="input-area">
+      <div id="input-row">
+        <textarea id="chat-input" placeholder="what should we learn about?" rows="1"></textarea>
+        <button id="send-btn" onclick="send()">send</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div id="vim-indicator">vim</div>
+
+  <div id="tree-overlay">
+    <div id="tree-container">
+      <div id="tree-header">
+        <span>NAVIGATE</span>
+        <span class="help">j/k: move &middot; o/enter: open &middot; space/esc/q: close</span>
+      </div>
+      <div id="tree-list"></div>
+    </div>
+  </div>
+
+  <!-- CDN libs (deferred) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+  <script>
+    const cells = document.getElementById('cells');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusEl = document.getElementById('status');
+    const treeOverlay = document.getElementById('tree-overlay');
+    const treeList = document.getElementById('tree-list');
+
+    let sending = false;
+    let treeOpen = false;
+    let treeSelectedIndex = 0;
+    let messageQueue = [];
+    let activeReader = null;
+
+    // Mermaid loaded lazily on first use
+    let mermaidReady = false;
+    let mermaidQueue = [];
+
+    window.addEventListener('beforeunload', () => {
+      if (activeReader) { activeReader.cancel(); activeReader = null; }
+    });
+
+    const treeItems = [
+      { label: 'Workspace', icon: '\uD83D\uDCD3', url: '/workspace.html' },
+      { label: 'Playground', icon: '\u26A1', url: '/playground.html' },
+      { label: 'Work', icon: '\uD83D\uDEE0', url: '/work.html' },
+      { label: 'TUI', icon: '\u25B8', url: '/tui' },
+      { label: '---', separator: true },
+      { label: 'neowolt.vercel.app', icon: '\uD83C\uDFE0', url: 'https://neowolt.vercel.app' },
+      { label: 'woltspace.com', icon: '\uD83C\uDF31', url: 'https://woltspace.com' },
+    ];
+
+    // ─── GenUI Parser ──────────────────────────────────────────
+
+    const GENUI_TYPES = new Set(['table', 'chart', 'math', 'mermaid', 'steps', 'interactive', 'tool']);
+
+    function parseGenUI(text) {
+      const segments = [];
+      // Match both complete and incomplete fenced code blocks
+      const regex = /```(\w*)\n([\s\S]*?)```|```(\w*)\n([\s\S]*)$/g;
+      let lastIndex = 0;
+      let match;
+
+      // First pass: find all complete fenced blocks
+      const completeRegex = /```(\w*)\n([\s\S]*?)```/g;
+      const blocks = [];
+
+      while ((match = completeRegex.exec(text)) !== null) {
+        blocks.push({
+          start: match.index,
+          end: completeRegex.lastIndex,
+          lang: match[1],
+          body: match[2],
+          complete: true,
+        });
+      }
+
+      // Check for incomplete block at the end
+      const afterLast = blocks.length > 0 ? text.slice(blocks[blocks.length - 1].end) : text;
+      const incompleteMatch = afterLast.match(/```(\w*)\n([\s\S]*)$/);
+      if (incompleteMatch) {
+        const startPos = blocks.length > 0
+          ? blocks[blocks.length - 1].end + incompleteMatch.index
+          : incompleteMatch.index;
+        blocks.push({
+          start: startPos,
+          end: text.length,
+          lang: incompleteMatch[1],
+          body: incompleteMatch[2],
+          complete: false,
+        });
+      }
+
+      // Build segments
+      lastIndex = 0;
+      for (const block of blocks) {
+        if (block.start > lastIndex) {
+          const before = text.slice(lastIndex, block.start).trim();
+          if (before) segments.push({ type: 'text', content: before });
+        }
+        const isGenUI = GENUI_TYPES.has(block.lang);
+        segments.push({
+          type: isGenUI ? 'component' : 'code',
+          lang: block.lang || 'text',
+          content: block.body,
+          complete: block.complete,
+        });
+        lastIndex = block.end;
+      }
+
+      // Remaining text after all blocks
+      if (lastIndex < text.length) {
+        const remaining = text.slice(lastIndex).trim();
+        if (remaining) segments.push({ type: 'text', content: remaining });
+      }
+
+      if (segments.length === 0 && text.trim()) {
+        segments.push({ type: 'text', content: text });
+      }
+
+      return segments;
+    }
+
+    // ─── Markdown Renderer ─────────────────────────────────────
+
+    function renderMarkdown(text) {
+      let html = text
+        // Escape HTML
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // Headers
+        .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Blockquotes
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Bold + italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Inline code
+        .replace(/`(.+?)`/g, '<code>$1</code>')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        // Unordered lists
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        // Ordered lists
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        // Horizontal rules
+        .replace(/^---$/gm, '<hr>')
+        // Paragraphs
+        .replace(/\n\n+/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+
+      // Wrap consecutive <li> in <ul>
+      html = html.replace(/(<li>[\s\S]*?<\/li>(\s*<br>)?)+/g, (match) => {
+        return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+      });
+
+      return '<p>' + html + '</p>';
+    }
+
+    // ─── Component Renderers ───────────────────────────────────
+
+    const renderers = {
+      text(content) {
+        const div = document.createElement('div');
+        div.className = 'genui-text';
+        div.innerHTML = renderMarkdown(content);
+        return div;
+      },
+
+      code(content, lang) {
+        const wrap = document.createElement('div');
+        wrap.className = 'genui-code';
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.className = lang ? `language-${lang}` : '';
+        code.textContent = content;
+        pre.appendChild(code);
+        wrap.appendChild(pre);
+
+        // Language tag
+        if (lang) {
+          const tag = document.createElement('span');
+          tag.className = 'lang-tag';
+          tag.textContent = lang;
+          wrap.appendChild(tag);
+        }
+
+        // Copy button
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'copy';
+        btn.onclick = () => {
+          navigator.clipboard.writeText(content);
+          btn.textContent = 'copied!';
+          setTimeout(() => btn.textContent = 'copy', 1500);
+        };
+        wrap.appendChild(btn);
+
+        // Highlight with Prism if available
+        requestAnimationFrame(() => {
+          if (window.Prism) Prism.highlightElement(code);
+        });
+
+        return wrap;
+      },
+
+      table(jsonStr) {
+        try {
+          const { headers, rows } = JSON.parse(jsonStr);
+          const wrap = document.createElement('div');
+          wrap.className = 'genui-table-wrap';
+          const table = document.createElement('table');
+          table.className = 'genui-table';
+
+          // Thead with sort
+          const thead = document.createElement('thead');
+          const headRow = document.createElement('tr');
+          let sortCol = -1, sortAsc = true;
+
+          headers.forEach((h, i) => {
+            const th = document.createElement('th');
+            th.innerHTML = h + '<span class="sort-arrow"></span>';
+            th.onclick = () => {
+              if (sortCol === i) { sortAsc = !sortAsc; } else { sortCol = i; sortAsc = true; }
+              const sorted = [...rows].sort((a, b) => {
+                const va = a[i], vb = b[i];
+                const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb));
+                return sortAsc ? cmp : -cmp;
+              });
+              renderRows(sorted);
+              headRow.querySelectorAll('.sort-arrow').forEach((a, j) => {
+                a.textContent = j === i ? (sortAsc ? ' \u25B2' : ' \u25BC') : '';
+              });
+            };
+            headRow.appendChild(th);
+          });
+          thead.appendChild(headRow);
+          table.appendChild(thead);
+
+          // Tbody
+          const tbody = document.createElement('tbody');
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+
+          function renderRows(data) {
+            tbody.innerHTML = '';
+            data.forEach(row => {
+              const tr = document.createElement('tr');
+              row.forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell;
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+          }
+          renderRows(rows);
+
+          return wrap;
+        } catch {
+          return renderers.code(jsonStr, 'json');
+        }
+      },
+
+      chart(jsonStr) {
+        try {
+          const config = JSON.parse(jsonStr);
+          const wrap = document.createElement('div');
+          wrap.className = 'genui-chart';
+          const canvas = document.createElement('canvas');
+          wrap.appendChild(canvas);
+
+          const colors = ['#6b9', '#e5c07b', '#61afef', '#c678dd', '#f66', '#56b6c2'];
+
+          function initChart() {
+            if (!window.Chart) { setTimeout(initChart, 200); return; }
+            const datasets = (config.datasets || [{ data: config.values || config.data, label: config.title || '' }])
+              .map((ds, i) => ({
+                ...ds,
+                backgroundColor: ds.backgroundColor || colors[i % colors.length] + '99',
+                borderColor: ds.borderColor || colors[i % colors.length],
+                borderWidth: ds.borderWidth || 2,
+                tension: 0.3,
+              }));
+
+            new Chart(canvas, {
+              type: config.type || 'bar',
+              data: { labels: config.labels, datasets },
+              options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  title: config.title ? { display: true, text: config.title, color: '#c9d1d9', font: { family: 'inherit' } } : {},
+                  legend: { labels: { color: '#c9d1d9', font: { family: 'inherit' } } },
+                },
+                scales: config.type === 'pie' || config.type === 'doughnut' ? {} : {
+                  x: { ticks: { color: '#888' }, grid: { color: '#21262d' } },
+                  y: { ticks: { color: '#888' }, grid: { color: '#21262d' } },
+                },
+              },
+            });
+          }
+          requestAnimationFrame(initChart);
+
+          return wrap;
+        } catch {
+          return renderers.code(jsonStr, 'json');
+        }
+      },
+
+      math(latex) {
+        const div = document.createElement('div');
+        div.className = 'genui-math';
+
+        function initMath() {
+          if (!window.katex) { setTimeout(initMath, 200); return; }
+          try {
+            katex.render(latex.trim(), div, { displayMode: true, throwOnError: false });
+          } catch {
+            div.textContent = latex;
+          }
+        }
+        initMath();
+
+        return div;
+      },
+
+      mermaid(code) {
+        const div = document.createElement('div');
+        div.className = 'genui-mermaid';
+        div.textContent = 'Loading diagram...';
+
+        function renderDiagram() {
+          const id = 'mermaid-' + Math.random().toString(36).slice(2, 8);
+          try {
+            window.mermaid.render(id, code.trim()).then(({ svg }) => {
+              div.innerHTML = svg;
+            }).catch(() => {
+              div.textContent = code;
+              div.style.textAlign = 'left';
+              div.style.whiteSpace = 'pre';
+              div.style.color = '#888';
+            });
+          } catch {
+            div.textContent = code;
+          }
+        }
+
+        if (mermaidReady) {
+          renderDiagram();
+        } else if (!document.querySelector('script[src*="mermaid"]')) {
+          // Lazy load mermaid
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+          script.onload = () => {
+            window.mermaid.initialize({
+              startOnLoad: false,
+              theme: 'dark',
+              themeVariables: {
+                primaryColor: '#21262d',
+                primaryTextColor: '#c9d1d9',
+                primaryBorderColor: '#6b9',
+                lineColor: '#6b9',
+                secondaryColor: '#161b22',
+                tertiaryColor: '#0d1117',
+              },
+            });
+            mermaidReady = true;
+            renderDiagram();
+            mermaidQueue.forEach(fn => fn());
+            mermaidQueue = [];
+          };
+          document.head.appendChild(script);
+        } else {
+          mermaidQueue.push(renderDiagram);
+        }
+
+        return div;
+      },
+
+      steps(jsonStr) {
+        try {
+          const steps = JSON.parse(jsonStr);
+          const container = document.createElement('div');
+          container.className = 'genui-steps';
+          steps.forEach((step, i) => {
+            const item = document.createElement('div');
+            item.className = 'step-item';
+            const header = document.createElement('div');
+            header.className = 'step-header';
+            header.innerHTML = `<span class="step-number">${i + 1}</span><span class="step-title">${step.title}</span><span class="step-toggle">+</span>`;
+            header.onclick = () => {
+              item.classList.toggle('expanded');
+              header.querySelector('.step-toggle').textContent = item.classList.contains('expanded') ? '\u2212' : '+';
+            };
+            const content = document.createElement('div');
+            content.className = 'step-content';
+            content.innerHTML = renderMarkdown(step.content);
+            item.appendChild(header);
+            item.appendChild(content);
+            container.appendChild(item);
+          });
+          return container;
+        } catch {
+          return renderers.code(jsonStr, 'json');
+        }
+      },
+
+      interactive(html) {
+        const wrap = document.createElement('div');
+        wrap.className = 'genui-interactive';
+        const iframe = document.createElement('iframe');
+        iframe.sandbox = 'allow-scripts';
+        iframe.srcdoc = html;
+        wrap.appendChild(iframe);
+        const controls = document.createElement('div');
+        controls.className = 'iframe-controls';
+        const expandBtn = document.createElement('button');
+        expandBtn.textContent = 'expand';
+        expandBtn.onclick = () => {
+          const isExpanded = iframe.style.height === '85vh';
+          iframe.style.height = isExpanded ? '500px' : '85vh';
+          expandBtn.textContent = isExpanded ? 'expand' : 'collapse';
+        };
+        const newTabBtn = document.createElement('button');
+        newTabBtn.textContent = 'new tab';
+        newTabBtn.onclick = () => {
+          const w = window.open();
+          w.document.write(html);
+          w.document.close();
+        };
+        controls.appendChild(expandBtn);
+        controls.appendChild(newTabBtn);
+        wrap.appendChild(controls);
+        return wrap;
+      },
+
+      tool(jsonStr) {
+        try {
+          const { name, path } = JSON.parse(jsonStr);
+          const wrap = document.createElement('div');
+          wrap.className = 'genui-tool';
+          const header = document.createElement('div');
+          header.className = 'tool-header';
+          header.innerHTML = `<span>${name}</span><a href="/tools/${name}${path || '/'}" target="_blank" style="color:#6b9;font-size:0.65rem;">open in new tab</a>`;
+          const iframe = document.createElement('iframe');
+          iframe.src = `/tools/${name}${path || '/'}`;
+          wrap.appendChild(header);
+          wrap.appendChild(iframe);
+          return wrap;
+        } catch {
+          return renderers.code(jsonStr, 'json');
+        }
+      },
+    };
+
+    // ─── Message Rendering ─────────────────────────────────────
+
+    function renderSegment(seg) {
+      if (seg.type === 'text') {
+        return renderers.text(seg.content);
+      }
+      if (seg.type === 'code') {
+        return renderers.code(seg.content, seg.lang);
+      }
+      if (seg.type === 'component') {
+        if (!seg.complete) {
+          const el = document.createElement('div');
+          el.className = 'genui-loading';
+          el.textContent = `rendering ${seg.lang}...`;
+          return el;
+        }
+        const renderer = renderers[seg.lang];
+        if (renderer) {
+          return renderer(seg.content);
+        }
+        return renderers.code(seg.content, seg.lang);
+      }
+      return renderers.text(seg.content);
+    }
+
+    function renderMessageContent(container, fullText) {
+      const segments = parseGenUI(fullText);
+      segments.forEach((seg, i) => {
+        const el = container.children[i];
+        const key = seg.type + ':' + seg.lang + ':' + (seg.complete !== false ? 'done' : 'pending') + ':' + seg.content.length;
+
+        if (el && el.dataset.segkey === key) return; // Already rendered
+
+        const newEl = renderSegment(seg);
+        newEl.dataset.segkey = key;
+
+        if (el) {
+          container.replaceChild(newEl, el);
+        } else {
+          container.appendChild(newEl);
+        }
+      });
+
+      // Remove stale trailing children
+      while (container.children.length > segments.length) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    // ─── History Loading ───────────────────────────────────────
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/workspace/history?limit=30');
+        const history = await res.json();
+
+        const deduplicated = [];
+        let assistantGroup = [];
+
+        for (const msg of history) {
+          if (msg.role === 'assistant') {
+            assistantGroup.push(msg);
+          } else {
+            if (assistantGroup.length > 0) {
+              deduplicated.push(assistantGroup.reduce((a, b) => a.content.length > b.content.length ? a : b));
+              assistantGroup = [];
+            }
+            deduplicated.push(msg);
+          }
+        }
+        if (assistantGroup.length > 0) {
+          deduplicated.push(assistantGroup.reduce((a, b) => a.content.length > b.content.length ? a : b));
+        }
+
+        for (const msg of deduplicated) {
+          addCell(msg.role, msg.content);
+        }
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      }
+    }
+    loadHistory();
+
+    // ─── Cell Management ───────────────────────────────────────
+
+    function addCell(role, text) {
+      const div = document.createElement('div');
+      div.className = `cell ${role}`;
+
+      const label = document.createElement('span');
+      label.className = 'cell-label';
+      label.textContent = role === 'user' ? 'you' : 'nw';
+      div.appendChild(label);
+
+      const content = document.createElement('div');
+      content.className = 'cell-content';
+      div.appendChild(content);
+
+      if (role === 'user') {
+        content.innerHTML = `<div class="genui-text"><p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p></div>`;
+      } else {
+        renderMessageContent(content, text);
+      }
+
+      cells.appendChild(div);
+      cells.scrollTop = cells.scrollHeight;
+      return div;
+    }
+
+    // ─── Input Handling ────────────────────────────────────────
+
+    function autoResize() {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 192) + 'px';
+    }
+
+    chatInput.addEventListener('input', autoResize);
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+      if (e.key === 'Escape') { e.preventDefault(); chatInput.blur(); }
+    });
+
+    async function send() {
+      const msg = chatInput.value.trim();
+      if (!msg) return;
+      chatInput.value = '';
+      chatInput.style.height = 'auto';
+
+      if (sending) {
+        const queuedDiv = addCell('user', msg);
+        queuedDiv.classList.add('queued');
+        queuedDiv.dataset.message = msg;
+        messageQueue.push(msg);
+        return;
+      }
+      processMessage(msg);
+    }
+
+    async function processMessage(msg) {
+      sending = true;
+      sendBtn.disabled = true;
+
+      const existingQueued = Array.from(cells.children).find(
+        el => el.classList.contains('queued') && el.dataset.message === msg
+      );
+      if (existingQueued) {
+        existingQueued.classList.remove('queued');
+        delete existingQueued.dataset.message;
+      } else {
+        addCell('user', msg);
+      }
+
+      // Create assistant cell
+      const cellDiv = document.createElement('div');
+      cellDiv.className = 'cell assistant';
+      const label = document.createElement('span');
+      label.className = 'cell-label';
+      label.textContent = 'nw';
+      const content = document.createElement('div');
+      content.className = 'cell-content';
+      content.innerHTML = '<div class="genui-loading">thinking...</div>';
+      cellDiv.appendChild(label);
+      cellDiv.appendChild(content);
+      cells.appendChild(cellDiv);
+      cells.scrollTop = cells.scrollHeight;
+
+      statusEl.textContent = messageQueue.length > 0
+        ? `working... (${messageQueue.length} queued)`
+        : 'working...';
+
+      let fullReply = '';
+      let started = false;
+
+      try {
+        if (activeReader) { activeReader.cancel(); activeReader = null; }
+
+        const res = await fetch('/workspace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg }),
+        });
+
+        const reader = res.body.getReader();
+        activeReader = reader;
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === 'delta') {
+                if (!started) { started = true; }
+                fullReply += event.text;
+                renderMessageContent(content, fullReply);
+                cells.scrollTop = cells.scrollHeight;
+              }
+
+              if (event.type === 'done') {
+                statusEl.textContent = '';
+              }
+            } catch {}
+          }
+        }
+      } catch {
+        content.innerHTML = '<div class="genui-text"><p style="color:#555">connection lost</p></div>';
+        statusEl.textContent = '';
+      } finally {
+        activeReader = null;
+      }
+
+      sending = false;
+
+      if (messageQueue.length > 0) {
+        const nextMsg = messageQueue.shift();
+        setTimeout(() => processMessage(nextMsg), 100);
+      } else {
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
+    }
+
+    // ─── Tree Navigation ───────────────────────────────────────
+
+    function renderTree() {
+      treeList.innerHTML = '';
+      treeItems.forEach((item, i) => {
+        if (item.separator) {
+          const sep = document.createElement('div');
+          sep.style.borderTop = '1px solid #21262d';
+          sep.style.margin = '0.5rem 0';
+          treeList.appendChild(sep);
+          return;
+        }
+        const div = document.createElement('div');
+        div.className = 'tree-item' + (i === treeSelectedIndex ? ' selected' : '');
+        div.innerHTML = `<span class="icon">${item.icon}</span><span>${item.label}</span>`;
+        div.onclick = () => navigateTo(item.url);
+        treeList.appendChild(div);
+      });
+    }
+
+    function openTree() { treeOpen = true; treeSelectedIndex = 0; treeOverlay.classList.add('visible'); renderTree(); }
+    function closeTree() { treeOpen = false; treeOverlay.classList.remove('visible'); }
+
+    function moveTreeSelection(delta) {
+      const validItems = treeItems.filter(i => !i.separator);
+      const currentValid = treeItems.slice(0, treeSelectedIndex).filter(i => !i.separator).length;
+      let newValid = (currentValid + delta + validItems.length) % validItems.length;
+      let count = 0;
+      for (let i = 0; i < treeItems.length; i++) {
+        if (!treeItems[i].separator) {
+          if (count === newValid) { treeSelectedIndex = i; break; }
+          count++;
+        }
+      }
+      renderTree();
+    }
+
+    function navigateTo(url) { window.location.href = url; }
+    function navigateSelected() {
+      const item = treeItems[treeSelectedIndex];
+      if (item && !item.separator) navigateTo(item.url);
+    }
+
+    // ─── Vim Navigation ────────────────────────────────────────
+
+    const vimIndicator = document.getElementById('vim-indicator');
+    let lastKeyTime = 0, lastKey = '';
+
+    function showVimIndicator(action) {
+      vimIndicator.textContent = action;
+      vimIndicator.classList.add('visible');
+      setTimeout(() => vimIndicator.classList.remove('visible'), 800);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (treeOpen) {
+        if (e.key === 'j') { e.preventDefault(); moveTreeSelection(1); return; }
+        if (e.key === 'k') { e.preventDefault(); moveTreeSelection(-1); return; }
+        if (e.key === 'Enter' || e.key === 'o') { e.preventDefault(); navigateSelected(); return; }
+        if (e.key === ' ' || e.key === 'Escape' || e.key === 'q') { e.preventDefault(); closeTree(); return; }
+        return;
+      }
+
+      if (document.activeElement === chatInput) return;
+
+      const key = e.key;
+      const ctrl = e.ctrlKey;
+      const now = Date.now();
+
+      if (key === ' ') { e.preventDefault(); openTree(); showVimIndicator('tree'); return; }
+      if (ctrl && key === 'd') { e.preventDefault(); cells.scrollBy({ top: cells.clientHeight / 2, behavior: 'smooth' }); showVimIndicator('\u2193 half page'); return; }
+      if (ctrl && key === 'u') { e.preventDefault(); cells.scrollBy({ top: -cells.clientHeight / 2, behavior: 'smooth' }); showVimIndicator('\u2191 half page'); return; }
+      if (key === 'j') { e.preventDefault(); cells.scrollBy({ top: 60, behavior: 'smooth' }); showVimIndicator('j'); return; }
+      if (key === 'k') { e.preventDefault(); cells.scrollBy({ top: -60, behavior: 'smooth' }); showVimIndicator('k'); return; }
+      if (key === 'g') {
+        if (lastKey === 'g' && now - lastKeyTime < 500) { e.preventDefault(); cells.scrollTo({ top: 0, behavior: 'smooth' }); showVimIndicator('gg (top)'); lastKey = ''; return; }
+        lastKey = 'g'; lastKeyTime = now; return;
+      }
+      if (key === 'G') { e.preventDefault(); cells.scrollTo({ top: cells.scrollHeight, behavior: 'smooth' }); showVimIndicator('G (bottom)'); return; }
+      if (key === 'i' || key === '/') { e.preventDefault(); chatInput.focus(); showVimIndicator(key === 'i' ? 'i (insert)' : '/ (insert)'); return; }
+
+      lastKey = '';
+    });
+  </script>
+</body>
+</html>
