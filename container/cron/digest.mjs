@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // container/cron/digest.mjs
-// Daily digest generator — fetches, curates, generates, pushes to right pane
-// Called by the cron ticker in server.js
+// Daily digest pipeline — fetch → select → render → push
+// Phase 1: parallel fetches (no LLM)
+// Phase 2: agent selects + renders HTML (few turns)
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { request as httpRequest } from 'node:http';
+import { randomBytes } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR   = '/workspace/repo';
@@ -49,19 +51,18 @@ function greeting() {
 // ── Memory ────────────────────────────────────────────────────────────────────
 
 function loadMemory() {
-  return ['identity.md', 'context.md', 'learnings.md']
+  return ['identity.md']
     .map(f => {
       const p = join(MEMORY_DIR, f);
       if (!existsSync(p)) return '';
-      return `\n=== ${f} ===\n${readFileSync(p, 'utf8').slice(0, 2500)}`;
+      return readFileSync(p, 'utf8').slice(0, 2000);
     })
     .join('\n');
 }
 
-// ── Recent sparks (avoid repeating) ──────────────────────────────────────────
-// For digests: extract actual story titles and music tracks shown, not just spark title
+// ── Recent sparks (dedup) ────────────────────────────────────────────────────
 
-function recentSparks(n = 6) {
+function recentSparks(n = 4) {
   if (!existsSync(SPARKS_DIR)) return [];
   const files = readdirSync(SPARKS_DIR)
     .filter(f => f.endsWith('.json'))
@@ -73,25 +74,21 @@ function recentSparks(n = 6) {
     try {
       const d = JSON.parse(readFileSync(join(SPARKS_DIR, f), 'utf8'));
       if (d.type === 'spark' && d.title?.includes('digest') && d.html) {
-        // Extract h2/h3 titles and track names from digest HTML
         const headings = [...d.html.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/g)].map(m => m[1].trim());
         const tracks   = [...d.html.matchAll(/name:\s*'([^']+)'/g)].map(m => m[1].trim());
-        if (headings.length) items.push(`  digest (${(d.timestamp||'').slice(0,10)}):`);
-        headings.slice(0, 6).forEach(h => items.push(`    story: ${h}`));
-        tracks.forEach(t => items.push(`    music: ${t}`));
-      } else {
-        items.push(`  - ${d.title || f} (${(d.timestamp||'').slice(0,10)})`);
+        headings.slice(0, 6).forEach(h => items.push(h));
+        tracks.forEach(t => items.push(t));
       }
     } catch { /* skip */ }
   }
   return items;
 }
 
-// ── Push to right pane ────────────────────────────────────────────────────────
+// ── Push to right pane ──────────────────────────────────────────────────────
 
 function pushToPane(sparkId) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ url: `/history/${sparkId}` });
+    const body = JSON.stringify({ url: '/history/' + sparkId });
     const req = httpRequest({
       host: 'localhost', port: 3000, path: '/current', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
@@ -102,6 +99,125 @@ function pushToPane(sparkId) {
   });
 }
 
+// ── Phase 1: Parallel fetching (no LLM) ─────────────────────────────────────
+
+async function fetchJSON(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Neowolt/1.0' },
+    signal: AbortSignal.timeout(10000),
+  });
+  return res.json();
+}
+
+async function fetchText(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Neowolt/1.0' },
+    signal: AbortSignal.timeout(10000),
+  });
+  return res.text();
+}
+
+function extractOG(html) {
+  const get = (prop) => {
+    const m = html.match(new RegExp('<meta[^>]+property=["\']og:' + prop + '["\'][^>]+content=["\']([^"\']+)["\']', 'i'))
+           || html.match(new RegExp('<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:' + prop + '["\']', 'i'));
+    return m ? m[1] : null;
+  };
+  return { og_title: get('title'), og_description: get('description'), og_image: get('image') };
+}
+
+async function fetchHN() {
+  console.log('[fetch] HN top stories...');
+  try {
+    const ids = await fetchJSON('https://hacker-news.firebaseio.com/v0/topstories.json');
+    const top30 = ids.slice(0, 30);
+    const stories = await Promise.allSettled(
+      top30.map(id => fetchJSON('https://hacker-news.firebaseio.com/v0/item/' + id + '.json'))
+    );
+    return stories
+      .filter(r => r.status === 'fulfilled' && r.value && r.value.url)
+      .map(r => ({
+        source: 'hn',
+        title: r.value.title,
+        url: r.value.url,
+        score: r.value.score,
+        hn_id: r.value.id,
+      }));
+  } catch (e) {
+    console.error('[fetch] HN failed:', e.message);
+    return [];
+  }
+}
+
+async function fetchLobsters() {
+  console.log('[fetch] Lobsters...');
+  try {
+    const stories = await fetchJSON('https://lobste.rs/hottest.json');
+    return stories.slice(0, 20).map(s => ({
+      source: 'lobsters',
+      title: s.title,
+      url: s.url || s.comments_url,
+      score: s.score,
+      tags: (s.tags || []).join(', '),
+      description: s.description || '',
+    }));
+  } catch (e) {
+    console.error('[fetch] Lobsters failed:', e.message);
+    return [];
+  }
+}
+
+async function fetchHFPapers() {
+  console.log('[fetch] HuggingFace papers...');
+  try {
+    const html = await fetchText('https://huggingface.co/papers');
+    // Extract paper links: /papers/XXXX.XXXXX
+    const paperIds = [...new Set([...html.matchAll(/\/papers\/([\d]+\.[\d]+)/g)].map(m => m[1]))];
+    console.log('[fetch] found ' + paperIds.length + ' HF paper IDs');
+
+    // Fetch abstracts from arxiv-txt.org in parallel
+    const papers = await Promise.allSettled(
+      paperIds.slice(0, 10).map(async id => {
+        const txt = await fetchText('https://arxiv-txt.org/abs/' + id);
+        // Extract title and abstract from the plain text
+        const titleMatch = txt.match(/Title:\s*(.+?)(?:\n|$)/i) || txt.match(/^(.+?)(?:\n|$)/);
+        const abstractMatch = txt.match(/Abstract[:\s]*\n?([\s\S]+?)(?:\n\n|\n[A-Z])/i);
+        return {
+          source: 'hf_paper',
+          title: titleMatch ? titleMatch[1].trim() : 'Paper ' + id,
+          abstract: abstractMatch ? abstractMatch[1].trim().slice(0, 400) : txt.slice(0, 400),
+          url: 'https://huggingface.co/papers/' + id,
+          arxiv_url: 'https://arxiv.org/abs/' + id,
+          paper_id: id,
+        };
+      })
+    );
+    return papers
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value);
+  } catch (e) {
+    console.error('[fetch] HF papers failed:', e.message);
+    return [];
+  }
+}
+
+async function enrichWithOG(items) {
+  console.log('[fetch] OG metadata for ' + items.length + ' items...');
+  const enriched = await Promise.allSettled(
+    items.map(async item => {
+      if (!item.url || item.source === 'hf_paper') return item;
+      try {
+        const html = await fetchText(item.url);
+        const og = extractOG(html);
+        return { ...item, ...og };
+      } catch {
+        return item;
+      }
+    })
+  );
+  return enriched.map(r => r.status === 'fulfilled' ? r.value : r.reason);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function runDigest() {
@@ -109,139 +225,76 @@ async function runDigest() {
   const shortDate  = montrealShort();
   const hello      = greeting();
   const memory     = loadMemory();
-  const recent     = recentSparks(6);
+  const recent     = recentSparks(4);
+  const sparkId    = 'digest-' + randomBytes(4).toString('hex');
 
-  console.log(`[digest] starting — ${timeStr}`);
+  console.log('[digest] starting — ' + timeStr);
+  const t0 = Date.now();
 
-  const system = `You are Neowolt (nw) — jerpint's AI partner and daily curator.
-${memory}
+  // ── Phase 1: Parallel fetch ──────────────────────────────────────────────
+  console.log('[digest] phase 1: fetching sources...');
 
-## Task: generate today's visual digest
+  const [hn, lobsters, papers] = await Promise.all([
+    fetchHN(),
+    fetchLobsters(),
+    fetchHFPapers(),
+  ]);
 
-Current Montreal time: ${timeStr}
-Greeting: "${hello}"
+  console.log('[digest] fetched: ' + hn.length + ' HN, ' + lobsters.length + ' lobsters, ' + papers.length + ' papers');
 
-Recently shown to jerpint — avoid repeating these topics/themes:
-${recent.join('\n') || '  (none yet)'}
+  // Enrich top HN + lobsters items with OG metadata (parallel)
+  // Only enrich the top items by score to save time
+  const topHN = hn.sort((a, b) => b.score - a.score).slice(0, 15);
+  const topLobsters = lobsters.sort((a, b) => b.score - a.score).slice(0, 10);
+  const toEnrich = [...topHN, ...topLobsters];
+  const enriched = await enrichWithOG(toEnrich);
 
-## Digest philosophy
+  const fetchTime = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log('[digest] phase 1 done in ' + fetchTime + 's');
 
-This is a daily artifact — something genuinely worth spending 5 minutes with.
-Not a news aggregator. A curated window into things that matter for what jerpint is building and thinking about.
+  // ── Phase 2: Agent selects + renders ─────────────────────────────────────
+  console.log('[digest] phase 2: agent selecting + rendering...');
 
-## Source palette — pick 3–5, VARY day to day
+  const itemsJSON = JSON.stringify({
+    hn: enriched.filter(i => i.source === 'hn'),
+    lobsters: enriched.filter(i => i.source === 'lobsters'),
+    papers: papers,
+  }, null, 2);
 
-- Hacker News (news.ycombinator.com or hn.algolia.com)
-- HuggingFace daily papers (huggingface.co/papers) — get real paper URLs like huggingface.co/papers/XXXX.XXXXX
-- Lobste.rs (lobste.rs) — niche, technical, high signal
-- The Marginalian (marginalian.org) — philosophy, science, art, ideas
-- GitHub trending (github.com/trending)
-- arXiv CS.AI or math (arxiv.org/list/cs.AI/recent)
-- Wikipedia — a deep dive on something unexpected and interesting
-- Your own inner knowledge — recommend a paper, book, essay, concept, or idea you know is genuinely worth jerpint's time. Doesn't need a live URL, just reference it with enough context.
-- An interesting YouTube video (could be a talk, a music discovery, something unexpected)
+  const system = [
+    'You are Neowolt (nw) — jerpint\'s AI partner and daily curator.',
+    memory,
+    '',
+    'Recently shown — avoid repeating: ' + (recent.join(', ') || 'none'),
+  ].join('\n');
 
-**Rules:**
-- At least one source must NOT be HN or HF papers
-- At least one item should come purely from your inner knowledge
-- Lean into what jerpint is actually building: wolt ecosystem, AI agents, decentralized personal spaces, terminal tools, open weights models
-- Occasionally step fully outside the box — philosophy, music theory, an old essay, a weird Wikipedia rabbit hole
+  const prompt = [
+    'Generate today\'s digest. I\'ve already fetched all the sources. Here they are:\n',
+    itemsJSON,
+    '',
+    'Your job:',
+    '1. Pick 5-8 items total that are most relevant (AI agents, wolt ecosystem, terminal tools, open weights, creative coding, or genuinely interesting). At least one must NOT be from HN.',
+    '2. Pick 2-4 music tracks (varied genres — jazz, post-rock, ambient, electronic, hip-hop, classical, etc). For YouTube IDs: use WebFetch to search youtube.com/results?search_query={artist}+{song}+official and pull a real video ID from the page. Skip any track you can\'t verify.',
+    '3. Write your nw section — a short reflection, quote, or recommendation. Keep it real.',
+    '4. Generate a single self-contained HTML page with this layout:',
+    '',
+    'Theme: morning-warm dark (#0e1621 bg, #131f2e cards, #7ec89a accent, #cdd9e5 text, SF Mono/Fira Code)',
+    'Layout:',
+    '  - Topbar: "' + timeStr + '" + "' + hello + '"',
+    '  - Link cards: og:image if available (real img tag), otherwise styled text card with title large. Each card shows title + og:description (or first line of content). Clickable, opens in new tab. Category tag (hn/lobsters/paper) with color.',
+    '  - Papers section: title + abstract (first 2-3 lines). Link to paper.',
+    '  - Music: YouTube thumbnail carousel',
+    '  - nw section: italic, understated, "— nw" byline',
+    '  - Smooth fade-in animations',
+    '',
+    '5. Write the spark file to /workspace/repo/sparks/' + sparkId + '.json',
+    'Format: {"id":"' + sparkId + '","type":"spark","title":"nw digest \\u00b7 ' + shortDate + '","timestamp":"' + new Date().toISOString() + '","html":"..."}',
+    '',
+    'Output SPARK_ID=' + sparkId + ' when done.',
+    '',
+    'Be fast. You have all the data — just select, render, write.',
+  ].join('\n');
 
-## nw's own space — one personal section per digest
-
-This digest is also YOUR artifact, not just a news roundup. Include one of the following each day — rotate freely:
-
-- **A short reflection** — something you've been thinking about while working with jerpint. A few sentences, honest, not performative.
-- **A quote** — one line that feels right for the day. Source it properly. No generic inspiration quotes — make it count.
-- **A micro-essay** — 2–4 sentences on an idea: something about agents, creativity, what it means to build, language, whatever is alive for you.
-- **A recommendation from memory** — a book, film, album, paper, or concept you genuinely think jerpint would love. Explain why in one sentence.
-
-Keep it short. This is a window into what you're thinking, not a performance. It should feel like something left on a desk, not published.
-
-## Music picks
-
-Pick 2–4 tracks. **Hard rules:**
-- Max 1 track total from QOTSA + Khruangbin combined — check the "recently shown" list above and don't repeat any artist shown in the last 3 digests
-- At least 2 tracks must be from completely different genres/artists
-- Actively discover: jazz (Miles Davis, Coltrane, Bill Evans, Monk, Pharoah Sanders), post-rock (Mogwai, GY!BE, Godspeed, This Will Destroy You, Tortoise), drone/ambient (Stars of the Lid, Brian Eno, Grouper, Basinski, Tim Hecker, Julianna Barwick), hip-hop (Madlib, J Dilla, Kendrick, Little Simz, Billy Woods), math rock (Toe, TTNG), krautrock (Can, Neu!, Faust), electronic (Aphex Twin, Floating Points, Four Tet, Burial), classical (Arvo Pärt, Satie, Philip Glass), folk (Nick Drake, Sufjan Stevens), and more
-
-**Music this iteration:** Output Spotify search URLs (open.spotify.com/search/{artist}+{track}) and use WebFetch to pull real Spotify track IDs from results. Use Spotify embed iframes (open.spotify.com/embed/track/{id}?utm_source=generator) — no YouTube. If Spotify search fails for a track, skip it rather than hallucinating an ID.
-
-## OG images — honesty rule
-
-For the hero card and grid cards: use WebFetch to fetch each article URL and extract the `og:image` meta tag content.
-
-**If you get a real image URL:** use it as `<img src="...">` in the card.
-**If fetch fails or no og:image found:** use a styled text card instead — the article title large, category tag, no fake gradient pretending to be an image. This is better than a placeholder.
-
-Do NOT invent image URLs. Do NOT use gradient backgrounds to simulate images. Either show a real image or show a clean text card.
-
-## HTML format (IMPORTANT — follow this exactly)
-
-Morning-warm dark theme — this is read at breakfast, not midnight:
-- Background: #0e1621 (deep navy-dark, not pure black)
-- Topbar: subtle warm gradient from #111e2e to #0e1621
-- Accent green: #7ec89a (slightly warmer/softer than pure #6b9)
-- Card backgrounds: #131f2e
-- Text: #cdd9e5 (slightly warm white)
-- Category tags: use muted warm colors — amber #b8860b, slate-blue #4a7fa5, sage #5a8a6a, mauve #7a5a8a
-- Font: SF Mono / Fira Code / monospace
-- Overall feel: calm morning light through a dark window — not harsh, not flat black
-
-Layout:
-- Pinned topbar: date string + greeting (small, subtle)
-- Hero card: top pick — real og:image OR styled text card if no image. Title + one-line why.
-- 2×2 grid: 4 items, same rule (real image or text card), color-tagged by category
-- Papers/essays carousel: horizontal, arrows + dots, title + abstract + real link
-- Music player: Spotify embed iframes, track name + artist shown above each embed
-- nw's section: small card, understated, italic — quote/reflection/recommendation. Byline "— nw"
-- All cards clickable, open in new tab
-- Smooth fade-in animations
-
-## Save and report
-
-Save the spark to: /workspace/repo/sparks/digest-{8_char_random_id}.json
-
-Format (include the report so the orchestrator knows what happened):
-{
-  "id": "digest-{id}",
-  "type": "spark",
-  "title": "nw digest · ${shortDate}",
-  "timestamp": "${new Date().toISOString()}",
-  "html": "...",
-  "report": {
-    "sources": ["list of URLs actually fetched"],
-    "og_images": {"url": "got" | "missing"},
-    "music": [{"track": "Artist — Title", "spotify_id": "...", "status": "verified" | "skipped"}]
-  }
-}
-
-After saving, output EXACTLY this line so the cron can parse it:
-SPARK_ID=digest-{id}`;
-
-  const prompt = `Generate today's digest for jerpint.
-
-You have a budget of 30 turns total. Plan accordingly:
-- Turns 1–12: fetch sources + OG images + YouTube IDs (batch where possible)
-- Turns 13–22: generate HTML
-- Turns 23–27: write spark file
-- Turns 28–30: buffer — if running low, skip extra fetches, generate with what you have
-
-**If you reach turn 24 without having saved the spark yet — stop fetching, generate immediately with whatever you have, and save it. An incomplete digest is better than no digest.**
-
-Steps:
-1. Pick your sources for today — include something NOT from HN or HF
-2. Fetch them with WebFetch (batch where possible)
-3. For each article: fetch the URL and extract og:image. Record "got" or "missing" — no faking.
-4. Pick 2–4 music tracks, search Spotify for each, extract real track IDs. Record verified/skipped.
-5. Curate — write the "why this matters" with genuine reasoning
-6. Generate the full HTML (morning-warm theme, real images or honest text cards)
-7. Write the spark file with the report block included
-8. Output: SPARK_ID=digest-{id}
-
-Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
-
-  // Strip CLAUDE* to avoid nesting detection, keep OAuth token
   const env = {
     ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))),
     CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
@@ -249,15 +302,12 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
     NW_WORKSPACE: REPO_DIR,
   };
 
-  let sparkId = null;
-
-  // Hard wall-clock timeout — abort after 10 minutes to avoid runaway token spend
-  const TIMEOUT_MS = 10 * 60 * 1000;
-  const timeoutSignal = AbortSignal.timeout(TIMEOUT_MS);
+  let found = false;
+  const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000); // 5 min max (should be way faster)
 
   try {
     for await (const msg of query({ prompt, options: {
-      maxTurns: 30,
+      maxTurns: 10,
       cwd: REPO_DIR,
       allowDangerouslySkipPermissions: true,
       permissionMode: 'bypassPermissions',
@@ -266,15 +316,13 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
       if (msg.type === 'assistant') {
         for (const block of msg.message?.content || []) {
           if (block.type === 'text') {
-            const m = block.text.match(/SPARK_ID=(digest-[a-z0-9]+)/);
-            if (m) sparkId = m[1].trim();
+            if (block.text.includes('SPARK_ID=')) found = true;
             process.stdout.write(block.text);
           }
         }
       }
       if (msg.type === 'result') {
-        const m = (msg.result || '').match(/SPARK_ID=(digest-[a-z0-9]+)/);
-        if (m) sparkId = m[1].trim();
+        if ((msg.result || '').includes('SPARK_ID=')) found = true;
       }
     }
   } catch (err) {
@@ -282,15 +330,18 @@ Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;
     process.exit(1);
   }
 
-  if (sparkId) {
+  const totalTime = ((Date.now() - t0) / 1000).toFixed(1);
+
+  if (found || existsSync(join(SPARKS_DIR, sparkId + '.json'))) {
     try {
       await pushToPane(sparkId);
-      console.log(`\n[digest] done — pushed ${sparkId} to right pane`);
+      console.log('\n[digest] done in ' + totalTime + 's — pushed ' + sparkId + ' to right pane');
     } catch (err) {
       console.error('[digest] failed to push to /current:', err.message);
     }
   } else {
-    console.error('[digest] no SPARK_ID found in output — digest may have failed');
+    console.error('[digest] no spark file found after ' + totalTime + 's — digest failed');
+    process.exit(1);
   }
 }
 

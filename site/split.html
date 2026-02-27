@@ -269,12 +269,22 @@
       renderHist();
     }
 
+    // Tell server what we're viewing so the poll doesn't fight us
+    function setCurrent(url) {
+      fetch('/current', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      }).catch(() => {});
+    }
+
     window.goBack = () => {
       if (stackIdx > 0) {
         stackIdx--;
         const e = viewStack[stackIdx];
         lastUrl = e.url;
         preview.src = e.url;
+        setCurrent(e.url);
         updateBackBtn();
         renderHist();
       }
@@ -286,6 +296,7 @@
         const e = viewStack[i];
         lastUrl = e.url;
         preview.src = e.url;
+        setCurrent(e.url);
         updateBackBtn();
         renderHist();
       }
