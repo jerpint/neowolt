@@ -16,7 +16,86 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR   = '/workspace/repo';
 const MEMORY_DIR = join(REPO_DIR, 'memory');
 const SPARKS_DIR = join(REPO_DIR, 'sparks');
-const SPOTIFY_POOL = JSON.parse(readFileSync(join(__dirname, 'spotify-pool.json'), 'utf8'));
+
+// ── Spotify API ─────────────────────────────────────────────────────────────
+
+const SPOTIFY_ID     = process.env.SPOTIFY_ID;
+const SPOTIFY_SECRET = process.env.SPOTIFY_SECRET;
+const SPOTIFY_USER   = 'uxroktcqj7luuc0nqwtmqrhh1';
+let spotifyAccessToken  = process.env.SPOTIFY_ACCESS_TOKEN;
+let spotifyRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN;
+
+async function refreshSpotifyToken() {
+  if (!SPOTIFY_ID || !SPOTIFY_SECRET || !spotifyRefreshToken) {
+    console.log('[spotify] missing credentials, skipping');
+    return null;
+  }
+  const basic = Buffer.from(SPOTIFY_ID + ':' + SPOTIFY_SECRET).toString('base64');
+  const body = 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(spotifyRefreshToken);
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + basic,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    console.error('[spotify] token refresh failed:', res.status, await res.text());
+    return null;
+  }
+  const data = await res.json();
+  spotifyAccessToken = data.access_token;
+  if (data.refresh_token) spotifyRefreshToken = data.refresh_token;
+  console.log('[spotify] token refreshed');
+  return spotifyAccessToken;
+}
+
+async function searchSpotifyTrack(artist, title) {
+  if (!spotifyAccessToken) return null;
+  const q = encodeURIComponent(artist + ' ' + title);
+  const res = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
+    headers: { 'Authorization': 'Bearer ' + spotifyAccessToken },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const track = data.tracks?.items?.[0];
+  if (!track) return null;
+  return { uri: track.uri, id: track.id, name: track.name, artist: track.artists?.[0]?.name };
+}
+
+async function createSpotifyPlaylist(name, description) {
+  if (!spotifyAccessToken) return null;
+  const res = await fetch('https://api.spotify.com/v1/users/' + SPOTIFY_USER + '/playlists', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + spotifyAccessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name, public: true, description }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    console.error('[spotify] playlist creation failed:', res.status);
+    return null;
+  }
+  return res.json();
+}
+
+async function addTracksToPlaylist(playlistId, uris) {
+  if (!spotifyAccessToken || !uris.length) return;
+  await fetch('https://api.spotify.com/v1/playlists/' + playlistId + '/tracks', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + spotifyAccessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ uris }),
+    signal: AbortSignal.timeout(10000),
+  });
+}
 
 // ── Montreal time ─────────────────────────────────────────────────────────────
 
@@ -220,7 +299,7 @@ async function enrichWithOG(items) {
 // ── HTML Template ────────────────────────────────────────────────────────────
 
 function renderHTML(data) {
-  const { dateStr, greeting, picks, papers, music, reflection } = data;
+  const { dateStr, greeting, picks, papers, playlistId, reflection } = data;
 
   const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -245,11 +324,11 @@ function renderHTML(data) {
     + '</a></div>'
   ).join('\n    ');
 
-  const musicHTML = music.filter(m => m.spotify_id).map(m =>
-    '<iframe style="border-radius:8px;margin-bottom:8px" src="https://open.spotify.com/embed/track/'
-    + esc(m.spotify_id) + '?utm_source=generator&theme=0" width="100%" height="80" frameBorder="0"'
-    + ' allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>'
-  ).join('\n    ');
+  const musicHTML = playlistId
+    ? '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/'
+      + esc(playlistId) + '?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0"'
+      + ' allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>'
+    : '';
 
   return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>nw digest</title>\n<style>\n'
 + `*{box-sizing:border-box;margin:0;padding:0}
@@ -281,25 +360,15 @@ body{background:#0e1621;color:#cdd9e5;font-family:'SF Mono','Fira Code','Courier
 .paper-card a{text-decoration:none;color:inherit;display:block}
 .paper-title{font-size:.85rem;color:#cdd9e5;margin-bottom:8px;line-height:1.4}
 .paper-abstract{font-size:.72rem;color:#cdd9e5;opacity:.45;line-height:1.5}
-.player{background:#131f2e;border:1px solid #1e2d3d;border-radius:6px;padding:16px}
-.player-track{margin-bottom:12px}
-.player-artist{font-size:.67rem;color:#7ec89a;letter-spacing:.1em;text-transform:uppercase;margin-right:8px;opacity:.8}
-.player-title{font-size:.88rem;color:#cdd9e5}
-.player-controls{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.p-btn{background:none;border:1px solid #1e2d3d;color:#cdd9e5;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;font-family:inherit;transition:border-color .2s}
-.p-btn:hover{border-color:#7ec89a55}
-.p-play{color:#7ec89a;border-color:#7ec89a44}
-.p-dots{display:flex;gap:6px;margin-left:8px}
-.p-dot{width:8px;height:8px;border-radius:50%;background:#1e2d3d;cursor:pointer;transition:background .2s}
-.p-dot.active{background:#7ec89a}
 .nw-section{border-top:1px solid #1e2d3d;padding-top:32px}
 .nw-quote{font-size:.88rem;line-height:1.75;color:#cdd9e5;opacity:.8;font-style:italic;max-width:640px}
 .nw-byline{margin-top:14px;color:#7ec89a;font-size:.78rem}
 `
-+ '</style>\n</head>\n<body>\n\n<div class="topbar">\n  <span class="date">' + esc(dateStr) + '</span>\n  <span class="greeting">' + esc(greeting) + '</span>\n</div>\n\n<div class="container">\n\n'
++ '</style>\n</head>\n<body>\n\n<div class="topbar">\n  <span class="date">' + esc(dateStr) + '</span>\n  <span class="greeting">' + esc(greeting) + '</span>\n</div>\n\n'
++ (musicHTML ? '<div style="padding:16px 24px">' + musicHTML + '</div>\n' : '')
++ '<div class="container">\n\n'
 + '  <div class="section">\n    <div class="section-label">from the web</div>\n    ' + cardHTML + '\n  </div>\n\n'
 + (papers.length ? '  <div class="section">\n    <div class="section-label">research</div>\n    ' + paperHTML + '\n  </div>\n\n' : '')
-+ '  <div class="section">\n    <div class="section-label">listening</div>\n    ' + musicHTML + '\n  </div>\n\n'
 + '  <div class="section nw-section">\n    <div class="nw-quote">' + esc(reflection) + '</div>\n    <div class="nw-byline">&mdash; nw</div>\n  </div>\n\n'
 + '</div>\n</body>\n</html>';
 }
@@ -361,9 +430,6 @@ async function runDigest() {
   // ── Phase 2: Claude picks + reflects (ONE turn, no tools) ────────────────
   console.log('[digest] phase 2: selecting...');
 
-  // Build music pool display for prompt (indexed)
-  const poolDisplay = SPOTIFY_POOL.map((t, i) => i + ': ' + t.artist + ' — ' + t.title + ' [' + t.genre + ']').join('\n');
-
   const prompt = [
     'You are Neowolt (nw). ' + memory,
     '',
@@ -371,14 +437,12 @@ async function runDigest() {
     '',
     'Sources (indexed):\n' + JSON.stringify(allItems, null, 2),
     '',
-    'Music pool (indexed):\n' + poolDisplay,
-    '',
     'Return ONLY valid JSON (no markdown fences, no extra text):',
-    '{"hn":[0,2,5],"lobsters":[1,3],"papers":[0,1],"music":[2,5,8],"reflection":"..."}',
+    '{"hn":[0,2,5],"lobsters":[1,3],"papers":[0,1],"music":[{"artist":"...","title":"..."},...],"reflection":"..."}',
     '',
     '- hn/lobsters/papers: arrays of idx from sources. Pick 5-8 total, at least 1 lobsters.',
     '- papers: 1-2 indices.',
-    '- music: 2-4 indices from the music pool. Pick tracks that fit the mood of today\'s picks.',
+    '- music: 6-10 real songs (artist + title). Pick tracks that fit the mood of today\'s picks. Mix genres: ambient, electronic, post-rock, jazz, classical, indie. Use REAL songs by REAL artists — they will be searched on Spotify.',
     '- reflection: 2-4 sentences, genuine, in nw voice.',
     '- ONLY output the JSON object.',
   ].join('\n');
@@ -443,8 +507,8 @@ async function runDigest() {
   // Log selection for debugging
   console.log('[digest] selection:', JSON.stringify(selection));
 
-  // ── Phase 3: Resolve data + Spotify IDs + render ────────────────────────
-  console.log('[digest] phase 3: resolving + rendering...');
+  // ── Phase 3: Resolve data + Spotify playlist + render ───────────────────
+  console.log('[digest] phase 3: resolving + building playlist...');
 
   // Resolve indices back to full items
   const hnItems = allItems.hn;
@@ -457,18 +521,46 @@ async function runDigest() {
   ];
   const resolvedPapers = (selection.papers || []).map(i => paperItems[i]).filter(Boolean);
 
-  // Resolve music indices from pool (all have verified Spotify IDs)
-  const musicPicks = (selection.music || []).map(i => SPOTIFY_POOL[i]).filter(Boolean);
-  const musicForTemplate = musicPicks.map(m => ({
-    artist: m.artist, title: m.title, spotify_id: m.id,
-  }));
+  // Build Spotify playlist from Haiku's music picks
+  let playlistId = null;
+  const musicSuggestions = selection.music || [];
+
+  if (SPOTIFY_ID && SPOTIFY_SECRET && spotifyRefreshToken && musicSuggestions.length > 0) {
+    // Refresh token (access tokens expire every hour)
+    await refreshSpotifyToken();
+
+    if (spotifyAccessToken) {
+      // Search for each track
+      console.log('[spotify] searching ' + musicSuggestions.length + ' tracks...');
+      const searchResults = await Promise.allSettled(
+        musicSuggestions.map(m => searchSpotifyTrack(m.artist, m.title))
+      );
+      const foundTracks = searchResults
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value);
+      console.log('[spotify] found ' + foundTracks.length + '/' + musicSuggestions.length + ' tracks');
+
+      if (foundTracks.length >= 3) {
+        // Create playlist
+        const playlistName = 'nw digest \u00b7 ' + shortDate;
+        const playlist = await createSpotifyPlaylist(playlistName, 'curated by neowolt');
+        if (playlist) {
+          playlistId = playlist.id;
+          await addTracksToPlaylist(playlistId, foundTracks.map(t => t.uri));
+          console.log('[spotify] playlist created: ' + playlistId + ' with ' + foundTracks.length + ' tracks');
+        }
+      }
+    }
+  } else {
+    console.log('[spotify] no credentials or no music picks, skipping playlist');
+  }
 
   const html = renderHTML({
     dateStr: timeStr,
     greeting: hello,
     picks,
     papers: resolvedPapers,
-    music: musicForTemplate,
+    playlistId,
     reflection: selection.reflection || '',
   });
 
@@ -491,7 +583,7 @@ async function runDigest() {
 
   const totalTime = ((Date.now() - t0) / 1000).toFixed(1);
   console.log('[digest] done in ' + totalTime + 's — ' + sparkId);
-  console.log('[digest] picks: ' + picks.length + ' items, ' + resolvedPapers.length + ' papers, ' + musicPicks.length + ' tracks (spotify)');
+  console.log('[digest] picks: ' + picks.length + ' items, ' + resolvedPapers.length + ' papers, playlist: ' + (playlistId || 'none'));
 }
 
 runDigest().catch(err => {

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><title>Spotify Auth</title></head>
+<body style="background:#0e1621;color:#cdd9e5;font-family:monospace;padding:40px">
+<h2>Click to authorize Spotify playlist access:</h2>
+<a id="link" style="color:#7ec89a;font-size:1.2em" target="_blank" rel="noopener" href="#">Loading...</a>
+<script>
+var cid = '2bbe74c597bd416daa4ce65eb233d1be';
+var url = 'https://accounts.spotify.com/authorize'
+  + '?client_id=' + cid
+  + '&response_type=code'
+  + '&redirect_uri=' + encodeURIComponent('http://127.0.0.1:3000/callback')
+  + '&scope=' + encodeURIComponent('playlist-modify-public playlist-modify-private playlist-read-private user-read-private')
+  + '&show_dialog=true';
+document.getElementById('link').href = url;
+document.getElementById('link').textContent = 'Authorize nw on Spotify';
+</script>
+</body></html>

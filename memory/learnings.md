@@ -113,6 +113,22 @@
 - **Don't auto-spark on load.** Burns tokens every page load. Show history + a "generate" button instead. Especially important when sharing the URL with others.
 - **Playground borrows patterns from NanoClaw but is independent.** Same OAuth token, same SDK approach, but separate Docker container, no launchd, no WhatsApp. Repo is self-contained — clone + `.env` + `./tunnel.sh`.
 
+## Digest Pipeline Learnings (Session 29)
+- **Template rendering > LLM HTML generation.** Having the LLM generate full HTML with tool calls took 128s. Having it return JSON indices into pre-fetched data + JS renders template: 20s. The LLM is a selector, not a renderer.
+- **Index-based LLM output avoids JSON parse errors.** When the LLM copies text (OG descriptions with em dashes, quotes), special chars break JSON. Returning `[0,2,5]` instead of copying text eliminates this.
+- **`claude -p` > Agent SDK for simple tasks.** For single-turn, no-tool queries: `child_process.spawn('claude', ['-p', prompt, '--max-turns', '1', '--model', 'claude-haiku-4-5-20251001'])`. Simpler, no SDK dependency, avoids auth issues.
+- **Strip `CLAUDECODE` + `CLAUDE_CODE_ENTRYPOINT` from env** when spawning claude subprocess. These trigger nesting detection. Keep everything else including `CLAUDE_CODE_OAUTH_TOKEN`.
+
+## Spotify API Learnings (Session 29)
+- **OAuth scopes don't attach when URL is copy-pasted from shell/env files.** The `&` character gets mangled. Solution: serve an HTML page that builds the auth URL in JavaScript.
+- **Token refresh pattern:** `POST https://accounts.spotify.com/api/token` with `grant_type=refresh_token`, `refresh_token={token}`, Basic auth header (`base64(client_id:client_secret)`). Returns new access_token (1hr TTL) + sometimes a new refresh_token.
+- **Search API:** `GET /v1/search?q={artist}+{title}&type=track&limit=1` — returns track URIs for playlist building.
+- **Playlist creation:** `POST /v1/users/{userId}/playlists` with `{name, public, description}`, then `POST /v1/playlists/{id}/tracks` with `{uris: ["spotify:track:xxx"]}`.
+- **oEmbed API** (`open.spotify.com/oembed?url=...`) is free, no auth, useful for validating track IDs (200=valid).
+- **Hallucinated Spotify IDs:** LLMs guess IDs that look plausible but 75%+ are invalid. Always verify via API or use search.
+- **Single playlist embed > stacked track embeds.** One iframe with `open.spotify.com/embed/playlist/{id}` is cleaner than N separate track embeds.
+- **Spotify user ID:** Found via `GET /v1/me` after OAuth. Jerpint's: `uxroktcqj7luuc0nqwtmqrhh1`.
+
 ## Claude Agent SDK Learnings
 - **`CLAUDECODE=1` env var blocks nested SDK calls.** If running inside a Claude Code session, the SDK's internal `claude` process detects nesting and exits with code 1. Fix: strip `CLAUDE*` env vars from the env passed to `query()`. Pattern: `Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE')))`.
 - **But keep `CLAUDE_CODE_OAUTH_TOKEN`.** Strip all CLAUDE* for nesting detection, then re-add the OAuth token for auth. Without it, Claude CLI launches browser OAuth flow (doesn't work in containers).

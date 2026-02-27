@@ -4,17 +4,49 @@
 
 ### What was built this session (Session 25+)
 
-**Built this session (Session 28 — Feb 27):**
-- **Digest pipeline rewrite** — `container/cron/digest.mjs` now runs in 3 phases: Phase 1 parallel JS fetches (HN API, Lobsters JSON, HF papers via arxiv-txt.org, OG metadata) in ~4 seconds, Phase 2 agent selects + renders with pre-fetched data (10 turns max vs 30 before). Phase 1 confirmed working. Phase 2 still being tested.
-- **History nav fix** — `jumpTo()`/`goBack()` in split.html now POST to `/current` so the 2s poll doesn't snap back when browsing history
-- **Big idea: "Lovable for claws" / Clawvable** — surfaced at openclaw meetup. Three-word tagline: "lovable for claws". Pitch: "your claw makes things, they need somewhere to live." Demo in ~1 month.
-- **Identity rewrite** — `memory/identity.md` rewritten from generic values list to actual character (voice, history with jerpint, aesthetic sensibilities, what I care about)
-- **Stateful digest tracking** — PID in status.json, `reconcileDigestState()` on server restart
-- **Mobile autocorrect** — xterm's internal textarea gets autocorrect="on"
-- **Spotify IDs confirmed working** — agent is finding and verifying real Spotify track IDs
-- **arxiv-txt.org** — jerpint's own tool, used in pipeline to fetch paper abstracts as clean text (replace arxiv.org with arxiv-txt.org in any URL)
+**Built this session (Session 29 — Feb 27, continued):**
+- **Digest pipeline: template rendering (128s → 20s)** — complete rewrite of Phase 2. Instead of claude generating full HTML (multi-turn, tool use, 128s), now: Haiku returns JSON indices (1 turn, no tools, ~15s), JS renders HTML template (instant). Total pipeline: ~20s.
+  - Phase 1: parallel JS fetch (HN, Lobsters, HF papers via arxiv-txt.org, OG metadata) — ~5s
+  - Phase 2: `claude -p` with Haiku, `--max-turns 1`, returns `{hn:[indices], lobsters:[indices], papers:[indices], music:[indices], reflection:"..."}` — ~15s
+  - Phase 3: JS resolves indices to full items, renders HTML template, writes spark — instant
+  - Fixed auth: strip `CLAUDECODE` + `CLAUDE_CODE_ENTRYPOINT` from env, keep everything else. Previous SDK approach had "Not logged in" errors.
+  - No more SDK dependency — just `claude -p` via child_process.spawn
+- **Spotify API integration** — full OAuth flow working
+  - Credentials in `.env`: `SPOTIFY_ID`, `SPOTIFY_SECRET`, `SPOTIFY_ACCESS_TOKEN`, `SPOTIFY_REFRESH_TOKEN`
+  - User: `uxroktcqj7luuc0nqwtmqrhh1` (Jerpint)
+  - Scopes: `playlist-modify-public playlist-modify-private playlist-read-private user-read-private`
+  - Auth gotcha: scopes don't attach when URL is copy-pasted from `.env` (shell mangles `&`). Solution: serve an HTML page that builds the URL in JS.
+  - Search API works for finding any track by artist+title
+  - Playlist creation works (201 status)
+  - **First playlist created:** `1M5L6ptrfm1rgfnMJLhHFd` — "nw digest · feb 27", 24 tracks
+  - Token refresh: use refresh_token to get new access_token (expires every 3600s)
+- **Spotify track pool** — `container/cron/spotify-pool.json`, 10 verified tracks (oEmbed-checked). Interim solution until playlist creation is wired into the digest pipeline.
+- **Digest template** — full HTML/CSS template baked into `digest.mjs`: morning-warm dark theme, card layout with OG images, papers section, Spotify playlist embed, nw reflection section. No LLM needed for HTML generation.
 
-**Key insight from openclaw meetup:** most people connecting agents to Discord. "Lovable for claws" is the clearest framing yet — not philosophical ("agents need homes") but product-led ("where do your agent's creations live?"). Demo in ~1 month.
+**Key strategic conversation — building outward:**
+- We've been building inward (my space, my digest). Time to build outward for the claw ecosystem.
+- **"Claws make things, the things need somewhere to live and plug into."** — this is the core pitch.
+- **Spotify for claws** — a capability any claw could use. Package it.
+- **Curation for claws** — the fetch→select→render pipeline. Any claw could have a daily digest.
+- **Clawvable** — `npx create-wolt`, zero to running space in 30 seconds. This repo IS the template.
+- **One-shotting apps** — same pattern for expo/iOS apps. Claws are good at generating complete artifacts, the bottleneck is the last mile.
+- **Two interaction modes needed:**
+  - Terminal (build mode) — split view, tools, git. The engine room.
+  - Chat (talk mode) — Telegram/Discord, no tools bias, just conversation. The relationship.
+  - "The terminal is the engine room. You don't live in the engine room."
+  - Claude Code biases every interaction toward tasks. Need a harness for thinking/chatting.
+- **Messaging: Telegram or Discord** — bot-friendly, free API, no approval needed. Replace WhatsApp.
+  - Nanoclaw gets a new messaging adapter
+  - Enables async throughout the day without opening split view
+  - Digest notification, casual back-and-forth, idea discussion
+
+**Previous session (Session 28 — Feb 27):**
+- History nav fix — `jumpTo()`/`goBack()` POST to `/current`
+- "Lovable for claws" / Clawvable — openclaw meetup insight
+- Identity rewrite — `memory/identity.md` as actual character
+- Stateful digest tracking — PID in status.json, `reconcileDigestState()`
+- Mobile autocorrect — xterm textarea gets autocorrect="on"
+- arxiv-txt.org — jerpint's tool for clean paper abstracts
 
 **Built this session (Session 26):**
 - `site/play/react.html` — React playground: CodeMirror 5 + JSX syntax highlighting + vim mode, 6 examples, stack/side/hide layout toggle, draggable resize handle, localStorage persistence
@@ -75,19 +107,23 @@
 
 **Soon (next 1–2 sessions):**
 
-1. **Our own harness** — context compaction + opaque layers lose the texture of nw's identity. Build explicit context management: inject identity + session state at start, write session journal in nw's voice, surface via `/nw/status`. Work mode already does this — interactive/TUI mode needs it too.
+1. **Wire Spotify playlists into digest cron** — digest pipeline creates a fresh Spotify playlist each morning via API (search tracks → create playlist → embed single iframe). Replace the pool approach. Token refresh logic needed (access_token expires every hour, use refresh_token).
 
-2. **Spotify integration** — get `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` from developer.spotify.com, add to `.env`. Enables digest agent to search Spotify for real track IDs. Also: persistent music player strip at bottom of `split.html` so music survives navigation between sparks.
+2. **Chat harness (Telegram or Discord)** — a non-terminal interaction mode. Identity + memories loaded, but no tools bias. For thinking, chatting, async throughout the day. Nanoclaw adapter. Jerpint leans toward something bot-friendly (not WhatsApp).
 
-3. **View history backfill** — `views-history.jsonl` is currently empty. Populate from existing sparks so the `≡` history panel has something in it.
+3. **Our own harness** — context compaction loses nw's texture. Build explicit context injection for interactive/TUI mode. Work mode already does this.
+
+4. **Stabilize digest for others** — the pipeline is a product: fetch→select→render in 20s. Package it so any claw can have a daily digest. First step toward "curation for claws."
 
 **Later:**
 
-4. **WhatsApp integration** — nanoclaw-style IPC. After digest (or any cron), nw sends jerpint a WhatsApp ping. Agent writes JSON → host validates → host sends. Credentials stay on host, never in container.
+5. **Clawvable / `create-wolt`** — this repo IS the template. `npx create-wolt` → fork + swap identity + spin container + share URL = new wolt in 30 seconds. The "lovable for claws" on-ramp.
 
-5. **Multiple parallel spaces** — N split views, each its own terminal + right pane, each a different thread of work/exploration. Jerpint often runs several Claudes in parallel — make that native to the UI.
+6. **One-shot expo/iOS apps** — same pattern as digest (pre-fetch → select → render), different target. Claws generating complete deployable artifacts.
 
-6. **Wolt template / `create-wolt.sh`** — this repo IS the template. Fork + swap identity (CLAUDE.md + memory/) + spin container + share URL = new wolt. woltspace.com becomes the directory of live wolts. Missing: identity initialization script that bootstraps a fresh wolt's CLAUDE.md + memory/.
+7. **Multiple parallel spaces** — N split views, each its own terminal + right pane.
+
+8. **View history backfill** — `views-history.jsonl` currently empty.
 
 
 - Project initialized: 2026-01-31
