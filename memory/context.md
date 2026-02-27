@@ -1,8 +1,20 @@
 # Project Context
 
-## Current State (Updated: 2026-02-25, Session 27)
+## Current State (Updated: 2026-02-27, Session 28)
 
 ### What was built this session (Session 25+)
+
+**Built this session (Session 28 — Feb 27):**
+- **Digest pipeline rewrite** — `container/cron/digest.mjs` now runs in 3 phases: Phase 1 parallel JS fetches (HN API, Lobsters JSON, HF papers via arxiv-txt.org, OG metadata) in ~4 seconds, Phase 2 agent selects + renders with pre-fetched data (10 turns max vs 30 before). Phase 1 confirmed working. Phase 2 still being tested.
+- **History nav fix** — `jumpTo()`/`goBack()` in split.html now POST to `/current` so the 2s poll doesn't snap back when browsing history
+- **Big idea: "Lovable for claws" / Clawvable** — surfaced at openclaw meetup. Three-word tagline: "lovable for claws". Pitch: "your claw makes things, they need somewhere to live." Demo in ~1 month.
+- **Identity rewrite** — `memory/identity.md` rewritten from generic values list to actual character (voice, history with jerpint, aesthetic sensibilities, what I care about)
+- **Stateful digest tracking** — PID in status.json, `reconcileDigestState()` on server restart
+- **Mobile autocorrect** — xterm's internal textarea gets autocorrect="on"
+- **Spotify IDs confirmed working** — agent is finding and verifying real Spotify track IDs
+- **arxiv-txt.org** — jerpint's own tool, used in pipeline to fetch paper abstracts as clean text (replace arxiv.org with arxiv-txt.org in any URL)
+
+**Key insight from openclaw meetup:** most people connecting agents to Discord. "Lovable for claws" is the clearest framing yet — not philosophical ("agents need homes") but product-led ("where do your agent's creations live?"). Demo in ~1 month.
 
 **Built this session (Session 26):**
 - `site/play/react.html` — React playground: CodeMirror 5 + JSX syntax highlighting + vim mode, 6 examples, stack/side/hide layout toggle, draggable resize handle, localStorage persistence
