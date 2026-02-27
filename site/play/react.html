@@ -626,7 +626,23 @@ ${cb}${ch}`;
       if (btn) btn.classList.add('active');
     }
 
-    loadExample('counter');
+    // ── localStorage persistence ──────────────────────────────────────────────
+    const LS_KEY = 'nw-react-playground';
+
+    function save() {
+      try { localStorage.setItem(LS_KEY, editor.getValue()); } catch {}
+    }
+
+    editor.on('change', save);
+
+    // restore or load default
+    const saved = (() => { try { return localStorage.getItem(LS_KEY); } catch {} })();
+    if (saved) {
+      editor.setValue(saved);
+      run();
+    } else {
+      loadExample('counter');
+    }
   </script>
 </body>
 </html>

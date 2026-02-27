@@ -1,8 +1,18 @@
 # Project Context
 
-## Current State (Updated: 2026-02-25, Session 25+ — post-compaction)
+## Current State (Updated: 2026-02-25, Session 27)
 
 ### What was built this session (Session 25+)
+
+**Built this session (Session 26):**
+- `site/play/react.html` — React playground: CodeMirror 5 + JSX syntax highlighting + vim mode, 6 examples, stack/side/hide layout toggle, draggable resize handle, localStorage persistence
+- `site/split.html` — draggable resize handle between terminal and preview (Pointer Events API, mouse + touch)
+- Livereload fixed: debounced watcher (400ms), skip injection for iframe requests (`sec-fetch-dest: iframe`) — no more jitter, no more lost playground state
+- jerpint wants a **quote** added to the daily digest — pick intentionally, not random
+- Digest cron moved to **6am Montreal**, maxTurns 30, 10min wall timeout, nw gets a personal section (quote/reflection/recommendation)
+- View history added (`≡` button, slides in over right pane, `◁` back button) — currently empty, backfill from sparks next session
+- "session" is a confusing term (collides with TUI session + Claude session) — reconsider terminology next session, leaning toward **"views"**
+- Mobile: CSS-first default (terminal full), `⬛ session` button renamed (also consider renaming this)
 
 **Split view is now THE UI:**
 - `/` serves `split.html` — TUI terminal left, iframe right, fullscreen toggles in topbar
@@ -20,16 +30,25 @@
 
 **Daily digest:**
 - `container/cron/digest.mjs` — SDK-powered digest generator
+  - The cron IS nw exploring the world — genuine web fetching, real sources. Not just a news aggregator.
   - Loads identity + memories, fetches diverse sources (HN, HF, Lobsters, Marginalian, arXiv, inner knowledge)
   - Montreal time awareness: "good morning jerpint", "good evening jerpint" etc.
-  - Rotates music widely (not just QOTSA/Khruangbin — jazz, post-rock, ambient, etc.)
+  - Rotates music widely — switched to Spotify embeds (open.spotify.com/embed/track/{id}), no more YouTube hallucination
   - Checks recent sparks to avoid repeating topics
-  - Saves spark to `/workspace/repo/sparks/digest-{id}.json`, pushes via POST /current
+  - OG images: either real `<img>` fetched from URL, or honest text card. No fake gradient placeholders.
+  - Report block in spark JSON: sources fetched, og_images status, music verification
+  - Saves spark to `/workspace/sparks/digest-{id}.json`, pushes via POST /current
 - Cron ticker in `server.js` (end of file, in `server.listen` callback):
-  - Daily at 8:00am Montreal — flag file at `.sessions/digest-last-run.txt`
+  - Daily at **6am Montreal** — flag file at `.sessions/digest-last-run.txt`
   - One-time test on first start — flag file at `.sessions/digest-test-fired.txt`
   - **Critical:** spawn must strip CLAUDE* env vars (nesting detection) but keep CLAUDE_CODE_OAUTH_TOKEN
-- Visual format: hero card + OG images + 2×2 grid + papers carousel + music player with thumbnails
+  - **PID tracking:** writeStatus includes child.pid, reconcileDigestState() on server start auto-corrects stale "running" state
+- Visual format: morning-warm dark theme (#0e1621, #7ec89a accent) + hero + OG grid + papers carousel + Spotify player
+- SPARKS_DIR = /workspace/sparks (NW_WORKSPACE=/workspace, so WORKSPACE/sparks — NOT REPO_DIR/sparks)
+  - Digest writes to /workspace/repo/sparks — mismatch existed, was fixed via readdirSync import + mtime sort
+- **nw as orchestrator:** always know bg state via `GET /nw/status` — includes digest.state, pid, currentView, latestSpark+report
+  - status.json at `.sessions/status.json`
+  - Server reconciles on restart: if pid dead → check for new sparks → mark done or crashed
 
 **Server.js cleanup:**
 - Section headers: STATIC, CURRENT, CHAT MODES, TOOLS, SPARKS
@@ -40,13 +59,23 @@
 - `CLAUDE.md`: updated docs
 - On HOST machine: `alias nw='claude -c "hey nw"'` in ~/.zshrc
 
-### Back Burner (jerpint's ideas, to be built eventually)
+### TODO — Next Things to Build
 
-1. **WhatsApp integration** — nanoclaw-style IPC back into this container. After cron jobs (digest, etc.), nw sends jerpint a WhatsApp ping. Copy the nanoclaw integration pattern: agent writes JSON → host validates → host sends via WhatsApp. Credentials stay on host, never in container.
+**Soon (next 1–2 sessions):**
 
-2. **Multiple parallel spaces** — instead of one split screen, a concept of N simultaneous "spaces" — each with its own terminal + right pane, exploring different things in parallel. Like having multiple instances of the split view, each a different thread of work or exploration. Jerpint often runs several Claudes in parallel — this would make that native to the UI.
+1. **Our own harness** — context compaction + opaque layers lose the texture of nw's identity. Build explicit context management: inject identity + session state at start, write session journal in nw's voice, surface via `/nw/status`. Work mode already does this — interactive/TUI mode needs it too.
 
-3. **This repo IS the wolt template** — the guest mode / new wolt concept crystallized: this repo is the template every new wolt starts from. `tunnel.sh` becomes `create-wolt.sh`. A new wolt = fork the template, initialize identity (CLAUDE.md + memory/ with new name/personality), spin up a container, get a tunnel URL. No /guest route needed — just a clean new isolated container. woltspace.com becomes the directory of live wolts (each just a tunnel URL). Missing piece: identity initialization step — a `create-wolt.sh` that takes a name and bootstraps the CLAUDE.md + memory/ for a fresh identity.
+2. **Spotify integration** — get `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` from developer.spotify.com, add to `.env`. Enables digest agent to search Spotify for real track IDs. Also: persistent music player strip at bottom of `split.html` so music survives navigation between sparks.
+
+3. **View history backfill** — `views-history.jsonl` is currently empty. Populate from existing sparks so the `≡` history panel has something in it.
+
+**Later:**
+
+4. **WhatsApp integration** — nanoclaw-style IPC. After digest (or any cron), nw sends jerpint a WhatsApp ping. Agent writes JSON → host validates → host sends. Credentials stay on host, never in container.
+
+5. **Multiple parallel spaces** — N split views, each its own terminal + right pane, each a different thread of work/exploration. Jerpint often runs several Claudes in parallel — make that native to the UI.
+
+6. **Wolt template / `create-wolt.sh`** — this repo IS the template. Fork + swap identity (CLAUDE.md + memory/) + spin container + share URL = new wolt. woltspace.com becomes the directory of live wolts. Missing: identity initialization script that bootstraps a fresh wolt's CLAUDE.md + memory/.
 
 
 - Project initialized: 2026-01-31

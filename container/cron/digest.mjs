@@ -165,25 +165,56 @@ Pick 2–4 tracks. **Hard rules:**
 - At least 2 tracks must be from completely different genres/artists
 - Actively discover: jazz (Miles Davis, Coltrane, Bill Evans, Monk, Pharoah Sanders), post-rock (Mogwai, GY!BE, Godspeed, This Will Destroy You, Tortoise), drone/ambient (Stars of the Lid, Brian Eno, Grouper, Basinski, Tim Hecker, Julianna Barwick), hip-hop (Madlib, J Dilla, Kendrick, Little Simz, Billy Woods), math rock (Toe, TTNG), krautrock (Can, Neu!, Faust), electronic (Aphex Twin, Floating Points, Four Tet, Burial), classical (Arvo Pärt, Satie, Philip Glass), folk (Nick Drake, Sufjan Stevens), and more
 
-**IMPORTANT — YouTube IDs:** Use WebFetch to search YouTube (youtube.com/results?search_query=artist+song+official) and pull real video IDs from the page source. Do NOT use IDs from memory — verify each one returns a thumbnail at https://img.youtube.com/vi/{id}/mqdefault.jpg before using.
+**Music this iteration:** Output Spotify search URLs (open.spotify.com/search/{artist}+{track}) and use WebFetch to pull real Spotify track IDs from results. Use Spotify embed iframes (open.spotify.com/embed/track/{id}?utm_source=generator) — no YouTube. If Spotify search fails for a track, skip it rather than hallucinating an ID.
+
+## OG images — honesty rule
+
+For the hero card and grid cards: use WebFetch to fetch each article URL and extract the `og:image` meta tag content.
+
+**If you get a real image URL:** use it as `<img src="...">` in the card.
+**If fetch fails or no og:image found:** use a styled text card instead — the article title large, category tag, no fake gradient pretending to be an image. This is better than a placeholder.
+
+Do NOT invent image URLs. Do NOT use gradient backgrounds to simulate images. Either show a real image or show a clean text card.
 
 ## HTML format (IMPORTANT — follow this exactly)
 
-Use the established digest visual format:
-- Dark theme (#0d1117 background, #6b9 green accent, SF Mono font)
+Morning-warm dark theme — this is read at breakfast, not midnight:
+- Background: #0e1621 (deep navy-dark, not pure black)
+- Topbar: subtle warm gradient from #111e2e to #0e1621
+- Accent green: #7ec89a (slightly warmer/softer than pure #6b9)
+- Card backgrounds: #131f2e
+- Text: #cdd9e5 (slightly warm white)
+- Category tags: use muted warm colors — amber #b8860b, slate-blue #4a7fa5, sage #5a8a6a, mauve #7a5a8a
+- Font: SF Mono / Fira Code / monospace
+- Overall feel: calm morning light through a dark window — not harsh, not flat black
+
+Layout:
 - Pinned topbar: date string + greeting (small, subtle)
-- Hero card: top pick with OG image (aspect-ratio 2/1, object-position center top, brightness filter, gradient overlay with title + one-line why)
-- 2×2 grid: 4 items with OG images (fetch og:image from each URL), color-tagged by category
-- Papers/essays carousel: horizontal, arrows + dots, each slide has title + abstract/summary + real link
-- Music player: thumbnail carousel (img.youtube.com/vi/{id}/mqdefault.jpg, 72×40px), YouTube embed slides open on play
-- nw's section: small card, understated, italic text — quote, reflection, or recommendation. No header needed, just the content and a subtle byline "— nw"
+- Hero card: top pick — real og:image OR styled text card if no image. Title + one-line why.
+- 2×2 grid: 4 items, same rule (real image or text card), color-tagged by category
+- Papers/essays carousel: horizontal, arrows + dots, title + abstract + real link
+- Music player: Spotify embed iframes, track name + artist shown above each embed
+- nw's section: small card, understated, italic — quote/reflection/recommendation. Byline "— nw"
 - All cards clickable, open in new tab
 - Smooth fade-in animations
 
-## Save and signal
+## Save and report
 
 Save the spark to: /workspace/repo/sparks/digest-{8_char_random_id}.json
-Format: { "id": "digest-{id}", "type": "spark", "title": "nw digest · ${shortDate}", "timestamp": "${new Date().toISOString()}", "html": "..." }
+
+Format (include the report so the orchestrator knows what happened):
+{
+  "id": "digest-{id}",
+  "type": "spark",
+  "title": "nw digest · ${shortDate}",
+  "timestamp": "${new Date().toISOString()}",
+  "html": "...",
+  "report": {
+    "sources": ["list of URLs actually fetched"],
+    "og_images": {"url": "got" | "missing"},
+    "music": [{"track": "Artist — Title", "spotify_id": "...", "status": "verified" | "skipped"}]
+  }
+}
 
 After saving, output EXACTLY this line so the cron can parse it:
 SPARK_ID=digest-{id}`;
@@ -199,13 +230,13 @@ You have a budget of 30 turns total. Plan accordingly:
 **If you reach turn 24 without having saved the spark yet — stop fetching, generate immediately with whatever you have, and save it. An incomplete digest is better than no digest.**
 
 Steps:
-1. Pick your sources for today — include something that's NOT HN or HF
-2. Fetch them with WebFetch (batch calls where possible to save turns)
-3. For each news/link item, also fetch the og:image meta tag from the source URL
-4. Find YouTube video IDs for the music picks (use WebFetch to search)
+1. Pick your sources for today — include something NOT from HN or HF
+2. Fetch them with WebFetch (batch where possible)
+3. For each article: fetch the URL and extract og:image. Record "got" or "missing" — no faking.
+4. Pick 2–4 music tracks, search Spotify for each, extract real track IDs. Record verified/skipped.
 5. Curate — write the "why this matters" with genuine reasoning
-6. Generate the full HTML page following the format in your instructions
-7. Write the spark file to /workspace/repo/sparks/digest-{randomid}.json
+6. Generate the full HTML (morning-warm theme, real images or honest text cards)
+7. Write the spark file with the report block included
 8. Output: SPARK_ID=digest-{id}
 
 Make it feel alive. Today's date: ${timeStr}. Greeting: "${hello}".`;

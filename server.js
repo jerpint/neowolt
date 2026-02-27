@@ -4,7 +4,7 @@ import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
-import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, watch } from 'node:fs';
+import { existsSync, statSync, readFileSync, readdirSync, writeFileSync, appendFileSync, mkdirSync, watch } from 'node:fs';
 import { execSync, spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { request as httpRequest } from 'node:http';
@@ -36,6 +36,7 @@ const WORKSPACE_HISTORY_FILE = join(SESSIONS_DIR, 'workspace-history.jsonl');
 const TOOL_REGISTRY_FILE = join(SESSIONS_DIR, 'tool-registry.json');
 const CURRENT_URL_FILE   = join(SESSIONS_DIR, 'current-url.json');
 const VIEWS_HISTORY_FILE = join(SESSIONS_DIR, 'views-history.jsonl');
+const STATUS_FILE        = join(SESSIONS_DIR, 'status.json');
 const PORT = 3000;
 const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
 
@@ -1227,6 +1228,27 @@ const server = createServer(async (req, res) => {
     });
     return;
   }
+  if (req.method === 'GET' && url.pathname === '/nw/status') {
+    const status = existsSync(STATUS_FILE) ? JSON.parse(readFileSync(STATUS_FILE, 'utf8')) : {};
+    const latestSpark = (() => {
+      try {
+        const files = readdirSync(SPARKS_DIR).filter(f => f.endsWith('.json'))
+          .sort((a,b) => statSync(join(SPARKS_DIR, b)).mtimeMs - statSync(join(SPARKS_DIR, a)).mtimeMs);
+        if (!files.length) return null;
+        const d = JSON.parse(readFileSync(join(SPARKS_DIR, files[0]), 'utf8'));
+        return { id: d.id, title: d.title, timestamp: d.timestamp, report: d.report || null };
+      } catch { return null; }
+    })();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      digest: status.digest || { state: 'unknown' },
+      currentView: getCurrentUrl(),
+      latestSpark,
+      serverUptime: Math.floor(process.uptime()),
+      updatedAt: status.updatedAt,
+    }, null, 2));
+    return;
+  }
   if (req.method === 'GET' && url.pathname === '/views/history') {
     const entries = readViewsHistory(100);
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1451,11 +1473,44 @@ server.listen(PORT, () => {
   `);
 
   // ─── DIGEST CRON ───────────────────────────────────────────────────────────
-  // Runs daily digest at 8:00am Montreal time.
+  // Runs daily digest at 6:00am Montreal time.
   // One-time test: fires 5 minutes after server start.
 
   const DIGEST_SCRIPT = join(__dirname, 'container/cron/digest.mjs');
   const DIGEST_FLAG   = join(SESSIONS_DIR, 'digest-last-run.txt');
+
+  function writeStatus(patch) {
+    try {
+      const cur = existsSync(STATUS_FILE) ? JSON.parse(readFileSync(STATUS_FILE, 'utf8')) : {};
+      writeFileSync(STATUS_FILE, JSON.stringify({ ...cur, ...patch, updatedAt: Date.now() }));
+    } catch {}
+  }
+
+  // On server start: reconcile digest state in case server restarted mid-run.
+  // If status says "running" but the PID is dead, figure out if it completed or crashed.
+  function reconcileDigestState() {
+    try {
+      if (!existsSync(STATUS_FILE)) return;
+      const s = JSON.parse(readFileSync(STATUS_FILE, 'utf8'));
+      if (s.digest?.state !== 'running') return;
+      const pid = s.digest.pid;
+      let pidAlive = false;
+      if (pid) {
+        try { process.kill(pid, 0); pidAlive = true; } catch {}
+      }
+      if (!pidAlive) {
+        // Check if a new digest spark appeared after the run started
+        const startedAt = s.digest.startedAt || 0;
+        const newSparks = readdirSync(SPARKS_DIR).filter(f =>
+          f.startsWith('digest-') && statSync(join(SPARKS_DIR, f)).mtimeMs > startedAt
+        );
+        const resolved = newSparks.length > 0 ? 'done' : 'crashed';
+        writeStatus({ digest: { ...s.digest, state: resolved, pid: null, reconciledAt: Date.now() } });
+        console.log(`[cron] reconciled digest state: ${s.digest.state} → ${resolved}`);
+      }
+    } catch {}
+  }
+  reconcileDigestState();
 
   function spawnDigest(reason) {
     if (!existsSync(DIGEST_SCRIPT)) {
@@ -1469,15 +1524,12 @@ server.listen(PORT, () => {
       NODE_PATH: '/app/node_modules',
       NW_WORKSPACE: REPO_DIR,
     };
-    const child = spawn(
-      'node', [DIGEST_SCRIPT],
-      {
-        env: cleanEnv,
-        stdio: 'inherit',
-        detached: false,
-      }
-    );
-    child.on('exit', code => console.log(`[cron] digest exited (${code})`));
+    const child = spawn('node', [DIGEST_SCRIPT], { env: cleanEnv, stdio: 'inherit', detached: false });
+    writeStatus({ digest: { state: 'running', startedAt: Date.now(), reason, pid: child.pid } });
+    child.on('exit', code => {
+      console.log(`[cron] digest exited (${code})`);
+      writeStatus({ digest: { state: code === 0 ? 'done' : 'failed', exitCode: code, finishedAt: Date.now(), reason } });
+    });
   }
 
   function montrealDateStr() {

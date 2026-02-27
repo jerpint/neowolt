@@ -166,6 +166,15 @@
     term.open(document.getElementById('terminal'));
     fitAddon.fit();
 
+    // Enable mobile autocorrect — xterm uses a hidden textarea for input;
+    // mobile keyboards disable autocorrect on it by default.
+    const xtermTextarea = document.querySelector('.xterm-helper-textarea');
+    if (xtermTextarea) {
+      xtermTextarea.setAttribute('autocorrect', 'on');
+      xtermTextarea.setAttribute('autocapitalize', 'sentences');
+      xtermTextarea.setAttribute('spellcheck', 'true');
+    }
+
     let ws = null;
     function connectTUI() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
