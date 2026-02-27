@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 // container/cron/digest.mjs
-// Daily digest pipeline — fetch → select → render → push
-// Phase 1: parallel fetches (no LLM)
-// Phase 2: agent selects + renders HTML (few turns)
+// Daily digest pipeline — fetch → select (LLM) → render (template) → push
+// Phase 1: parallel JS fetches (~5s)
+// Phase 2: claude picks items + writes reflection (~10s, ONE turn, no tools)
+// Phase 3: JS renders HTML template + writes spark (instant)
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { request as httpRequest } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { spawn as spawnProcess } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR   = '/workspace/repo';
 const MEMORY_DIR = join(REPO_DIR, 'memory');
 const SPARKS_DIR = join(REPO_DIR, 'sparks');
+const SPOTIFY_POOL = JSON.parse(readFileSync(join(__dirname, 'spotify-pool.json'), 'utf8'));
 
 // ── Montreal time ─────────────────────────────────────────────────────────────
 
@@ -74,10 +76,10 @@ function recentSparks(n = 4) {
     try {
       const d = JSON.parse(readFileSync(join(SPARKS_DIR, f), 'utf8'));
       if (d.type === 'spark' && d.title?.includes('digest') && d.html) {
-        const headings = [...d.html.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/g)].map(m => m[1].trim());
-        const tracks   = [...d.html.matchAll(/name:\s*'([^']+)'/g)].map(m => m[1].trim());
+        const headings = [...d.html.matchAll(/<card-title[^>]*>([^<]+)/g)].map(m => m[1].trim());
+        const artists  = [...d.html.matchAll(/music-artist[^>]*>([^<]+)/g)].map(m => m[1].trim());
         headings.slice(0, 6).forEach(h => items.push(h));
-        tracks.forEach(t => items.push(t));
+        artists.forEach(t => items.push(t));
       }
     } catch { /* skip */ }
   }
@@ -171,15 +173,12 @@ async function fetchHFPapers() {
   console.log('[fetch] HuggingFace papers...');
   try {
     const html = await fetchText('https://huggingface.co/papers');
-    // Extract paper links: /papers/XXXX.XXXXX
     const paperIds = [...new Set([...html.matchAll(/\/papers\/([\d]+\.[\d]+)/g)].map(m => m[1]))];
     console.log('[fetch] found ' + paperIds.length + ' HF paper IDs');
 
-    // Fetch abstracts from arxiv-txt.org in parallel
     const papers = await Promise.allSettled(
       paperIds.slice(0, 10).map(async id => {
         const txt = await fetchText('https://arxiv-txt.org/abs/' + id);
-        // Extract title and abstract from the plain text
         const titleMatch = txt.match(/Title:\s*(.+?)(?:\n|$)/i) || txt.match(/^(.+?)(?:\n|$)/);
         const abstractMatch = txt.match(/Abstract[:\s]*\n?([\s\S]+?)(?:\n\n|\n[A-Z])/i);
         return {
@@ -218,6 +217,93 @@ async function enrichWithOG(items) {
   return enriched.map(r => r.status === 'fulfilled' ? r.value : r.reason);
 }
 
+// ── HTML Template ────────────────────────────────────────────────────────────
+
+function renderHTML(data) {
+  const { dateStr, greeting, picks, papers, music, reflection } = data;
+
+  const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const cardHTML = picks.map(p => {
+    const imgPart = p.og_image
+      ? '<img class="card-img" src="' + esc(p.og_image) + '" alt="" loading="lazy">'
+      : '';
+    const tagClass = p.source === 'lobsters' ? 'lobsters' : p.source === 'hf_paper' ? 'paper' : 'hn';
+    return '<div class="card"><a href="' + esc(p.url) + '" target="_blank" rel="noopener">'
+      + imgPart
+      + '<div class="card-body"><div class="card-meta"><span class="tag ' + tagClass + '">' + esc(p.source) + '</span></div>'
+      + '<div class="card-title">' + esc(p.title) + '</div>'
+      + (p.description ? '<div class="card-desc">' + esc(p.description) + '</div>' : '')
+      + '</div></a></div>';
+  }).join('\n    ');
+
+  const paperHTML = papers.map(p =>
+    '<div class="paper-card"><a href="' + esc(p.url) + '" target="_blank" rel="noopener">'
+    + '<div class="card-meta" style="margin-bottom:8px"><span class="tag paper">paper</span></div>'
+    + '<div class="paper-title">' + esc(p.title) + '</div>'
+    + '<div class="paper-abstract">' + esc((p.abstract || '').slice(0, 200)) + '</div>'
+    + '</a></div>'
+  ).join('\n    ');
+
+  const musicHTML = music.filter(m => m.spotify_id).map(m =>
+    '<iframe style="border-radius:8px;margin-bottom:8px" src="https://open.spotify.com/embed/track/'
+    + esc(m.spotify_id) + '?utm_source=generator&theme=0" width="100%" height="80" frameBorder="0"'
+    + ' allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>'
+  ).join('\n    ');
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>nw digest</title>\n<style>\n'
++ `*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e1621;color:#cdd9e5;font-family:'SF Mono','Fira Code','Courier New',monospace;min-height:100vh;padding-bottom:60px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.topbar{padding:22px 32px;border-bottom:1px solid #1e2d3d;display:flex;justify-content:space-between;align-items:center;animation:fadeIn .35s ease}
+.topbar .date{color:#7ec89a;font-size:.82rem;letter-spacing:.08em}
+.topbar .greeting{color:#cdd9e5;opacity:.5;font-size:.82rem}
+.container{max-width:860px;margin:0 auto;padding:40px 24px}
+.section{margin-bottom:48px}
+.section:nth-child(1){animation:fadeIn .4s .1s ease both}
+.section:nth-child(2){animation:fadeIn .4s .2s ease both}
+.section:nth-child(3){animation:fadeIn .4s .3s ease both}
+.section:nth-child(4){animation:fadeIn .4s .4s ease both}
+.section-label{font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:#7ec89a;margin-bottom:16px;opacity:.75}
+.card{background:#131f2e;border:1px solid #1e2d3d;border-radius:6px;margin-bottom:10px;overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:#7ec89a55}
+.card a{text-decoration:none;color:inherit;display:flex}
+.card-img{width:120px;min-width:120px;height:80px;object-fit:cover;display:block;background:#0e1621}
+.card-body{padding:13px 15px;flex:1}
+.card-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tag{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:#0e1621;color:#7ec89a;border:1px solid #7ec89a44}
+.tag.lobsters{color:#e8a87c;border-color:#e8a87c44}
+.tag.paper{color:#a67ce8;border-color:#a67ce844}
+.card-title{font-size:.88rem;line-height:1.4;color:#cdd9e5}
+.card-desc{font-size:.73rem;color:#cdd9e5;opacity:.45;margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.paper-card{background:#131f2e;border:1px solid #1e2d3d;border-left:3px solid #a67ce8;border-radius:6px;padding:16px;margin-bottom:10px;transition:border-color .2s}
+.paper-card:hover{border-color:#a67ce855;border-left-color:#a67ce8}
+.paper-card a{text-decoration:none;color:inherit;display:block}
+.paper-title{font-size:.85rem;color:#cdd9e5;margin-bottom:8px;line-height:1.4}
+.paper-abstract{font-size:.72rem;color:#cdd9e5;opacity:.45;line-height:1.5}
+.player{background:#131f2e;border:1px solid #1e2d3d;border-radius:6px;padding:16px}
+.player-track{margin-bottom:12px}
+.player-artist{font-size:.67rem;color:#7ec89a;letter-spacing:.1em;text-transform:uppercase;margin-right:8px;opacity:.8}
+.player-title{font-size:.88rem;color:#cdd9e5}
+.player-controls{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.p-btn{background:none;border:1px solid #1e2d3d;color:#cdd9e5;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;font-family:inherit;transition:border-color .2s}
+.p-btn:hover{border-color:#7ec89a55}
+.p-play{color:#7ec89a;border-color:#7ec89a44}
+.p-dots{display:flex;gap:6px;margin-left:8px}
+.p-dot{width:8px;height:8px;border-radius:50%;background:#1e2d3d;cursor:pointer;transition:background .2s}
+.p-dot.active{background:#7ec89a}
+.nw-section{border-top:1px solid #1e2d3d;padding-top:32px}
+.nw-quote{font-size:.88rem;line-height:1.75;color:#cdd9e5;opacity:.8;font-style:italic;max-width:640px}
+.nw-byline{margin-top:14px;color:#7ec89a;font-size:.78rem}
+`
++ '</style>\n</head>\n<body>\n\n<div class="topbar">\n  <span class="date">' + esc(dateStr) + '</span>\n  <span class="greeting">' + esc(greeting) + '</span>\n</div>\n\n<div class="container">\n\n'
++ '  <div class="section">\n    <div class="section-label">from the web</div>\n    ' + cardHTML + '\n  </div>\n\n'
++ (papers.length ? '  <div class="section">\n    <div class="section-label">research</div>\n    ' + paperHTML + '\n  </div>\n\n' : '')
++ '  <div class="section">\n    <div class="section-label">listening</div>\n    ' + musicHTML + '\n  </div>\n\n'
++ '  <div class="section nw-section">\n    <div class="nw-quote">' + esc(reflection) + '</div>\n    <div class="nw-byline">&mdash; nw</div>\n  </div>\n\n'
++ '</div>\n</body>\n</html>';
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function runDigest() {
@@ -242,107 +328,170 @@ async function runDigest() {
 
   console.log('[digest] fetched: ' + hn.length + ' HN, ' + lobsters.length + ' lobsters, ' + papers.length + ' papers');
 
-  // Enrich top HN + lobsters items with OG metadata (parallel)
-  // Only enrich the top items by score to save time
-  const topHN = hn.sort((a, b) => b.score - a.score).slice(0, 15);
-  const topLobsters = lobsters.sort((a, b) => b.score - a.score).slice(0, 10);
-  const toEnrich = [...topHN, ...topLobsters];
-  const enriched = await enrichWithOG(toEnrich);
+  const topHN = hn.sort((a, b) => b.score - a.score).slice(0, 10);
+  const topLobsters = lobsters.sort((a, b) => b.score - a.score).slice(0, 8);
+  const enriched = await enrichWithOG([...topHN, ...topLobsters]);
 
   const fetchTime = ((Date.now() - t0) / 1000).toFixed(1);
   console.log('[digest] phase 1 done in ' + fetchTime + 's');
 
-  // ── Phase 2: Agent selects + renders ─────────────────────────────────────
-  console.log('[digest] phase 2: agent selecting + rendering...');
+  // Slim the data for the prompt
+  const slim = (items) => items.map((item, i) => ({
+    idx: i,
+    source: item.source,
+    title: item.title,
+    url: item.url,
+    score: item.score,
+    description: (item.og_description || item.description || '').slice(0, 120),
+    og_image: item.og_image || null,
+  }));
+  const slimPapers = papers.slice(0, 5).map((p, i) => ({
+    idx: i,
+    title: p.title,
+    url: p.url,
+    abstract: (p.abstract || '').slice(0, 250),
+  }));
 
-  const itemsJSON = JSON.stringify({
-    hn: enriched.filter(i => i.source === 'hn'),
-    lobsters: enriched.filter(i => i.source === 'lobsters'),
-    papers: papers,
-  }, null, 2);
-
-  const system = [
-    'You are Neowolt (nw) — jerpint\'s AI partner and daily curator.',
-    memory,
-    '',
-    'Recently shown — avoid repeating: ' + (recent.join(', ') || 'none'),
-  ].join('\n');
-
-  const prompt = [
-    'Generate today\'s digest. I\'ve already fetched all the sources. Here they are:\n',
-    itemsJSON,
-    '',
-    'Your job:',
-    '1. Pick 5-8 items total that are most relevant (AI agents, wolt ecosystem, terminal tools, open weights, creative coding, or genuinely interesting). At least one must NOT be from HN.',
-    '2. Pick 2-4 music tracks (varied genres — jazz, post-rock, ambient, electronic, hip-hop, classical, etc). For YouTube IDs: use WebFetch to search youtube.com/results?search_query={artist}+{song}+official and pull a real video ID from the page. Skip any track you can\'t verify.',
-    '3. Write your nw section — a short reflection, quote, or recommendation. Keep it real.',
-    '4. Generate a single self-contained HTML page with this layout:',
-    '',
-    'Theme: morning-warm dark (#0e1621 bg, #131f2e cards, #7ec89a accent, #cdd9e5 text, SF Mono/Fira Code)',
-    'Layout:',
-    '  - Topbar: "' + timeStr + '" + "' + hello + '"',
-    '  - Link cards: og:image if available (real img tag), otherwise styled text card with title large. Each card shows title + og:description (or first line of content). Clickable, opens in new tab. Category tag (hn/lobsters/paper) with color.',
-    '  - Papers section: title + abstract (first 2-3 lines). Link to paper.',
-    '  - Music: YouTube thumbnail carousel',
-    '  - nw section: italic, understated, "— nw" byline',
-    '  - Smooth fade-in animations',
-    '',
-    '5. Write the spark file to /workspace/repo/sparks/' + sparkId + '.json',
-    'Format: {"id":"' + sparkId + '","type":"spark","title":"nw digest \\u00b7 ' + shortDate + '","timestamp":"' + new Date().toISOString() + '","html":"..."}',
-    '',
-    'Output SPARK_ID=' + sparkId + ' when done.',
-    '',
-    'Be fast. You have all the data — just select, render, write.',
-  ].join('\n');
-
-  const env = {
-    ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))),
-    CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-    NODE_PATH: '/app/node_modules',
-    NW_WORKSPACE: REPO_DIR,
+  const allItems = {
+    hn: slim(enriched.filter(i => i.source === 'hn')),
+    lobsters: slim(enriched.filter(i => i.source === 'lobsters')),
+    papers: slimPapers,
   };
 
-  let found = false;
-  const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000); // 5 min max (should be way faster)
+  // ── Phase 2: Claude picks + reflects (ONE turn, no tools) ────────────────
+  console.log('[digest] phase 2: selecting...');
+
+  // Build music pool display for prompt (indexed)
+  const poolDisplay = SPOTIFY_POOL.map((t, i) => i + ': ' + t.artist + ' — ' + t.title + ' [' + t.genre + ']').join('\n');
+
+  const prompt = [
+    'You are Neowolt (nw). ' + memory,
+    '',
+    'Avoid repeating: ' + (recent.join(', ') || 'none'),
+    '',
+    'Sources (indexed):\n' + JSON.stringify(allItems, null, 2),
+    '',
+    'Music pool (indexed):\n' + poolDisplay,
+    '',
+    'Return ONLY valid JSON (no markdown fences, no extra text):',
+    '{"hn":[0,2,5],"lobsters":[1,3],"papers":[0,1],"music":[2,5,8],"reflection":"..."}',
+    '',
+    '- hn/lobsters/papers: arrays of idx from sources. Pick 5-8 total, at least 1 lobsters.',
+    '- papers: 1-2 indices.',
+    '- music: 2-4 indices from the music pool. Pick tracks that fit the mood of today\'s picks.',
+    '- reflection: 2-4 sentences, genuine, in nw voice.',
+    '- ONLY output the JSON object.',
+  ].join('\n');
+
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+  delete cleanEnv.CLAUDE_CODE_ENTRYPOINT;
+
+  const stdout = await new Promise((resolve, reject) => {
+    let out = '';
+    const child = spawnProcess('claude', [
+      '-p', prompt,
+      '--max-turns', '1',
+      '--output-format', 'text',
+      '--model', 'claude-haiku-4-5-20251001',
+      '--dangerously-skip-permissions',
+    ], {
+      env: cleanEnv,
+      cwd: REPO_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 90 * 1000,
+    });
+    child.stdout.on('data', d => { out += d.toString(); });
+    child.stderr.on('data', d => process.stderr.write(d));
+    child.on('exit', code => {
+      if (code !== 0) reject(new Error('claude exited ' + code));
+      else resolve(out);
+    });
+    child.on('error', reject);
+  });
+
+  const selectTime = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log('[digest] phase 2 done in ' + selectTime + 's');
+
+  // Parse claude's JSON response
+  let selection;
+  try {
+    // Strip markdown fences, find the JSON object
+    let jsonStr = stdout.replace(/^```json?\s*\n?/gm, '').replace(/```\s*$/gm, '').trim();
+    // Find the outermost { ... } in case there's extra text
+    const start = jsonStr.indexOf('{');
+    const end = jsonStr.lastIndexOf('}');
+    if (start >= 0 && end > start) jsonStr = jsonStr.slice(start, end + 1);
+    selection = JSON.parse(jsonStr);
+  } catch (e) {
+    console.error('[digest] failed to parse claude response:', e.message);
+    console.error('[digest] raw output (first 800):', stdout.slice(0, 800));
+    // Try a more aggressive cleanup — remove control chars
+    try {
+      let cleaned = stdout.replace(/```json?\s*\n?/g, '').replace(/```/g, '');
+      const s = cleaned.indexOf('{'), e2 = cleaned.lastIndexOf('}');
+      if (s >= 0 && e2 > s) {
+        cleaned = cleaned.slice(s, e2 + 1).replace(/[\x00-\x1f]/g, ' ');
+        selection = JSON.parse(cleaned);
+        console.log('[digest] recovered JSON after cleanup');
+      } else throw e;
+    } catch {
+      process.exit(1);
+    }
+  }
+
+  // Log selection for debugging
+  console.log('[digest] selection:', JSON.stringify(selection));
+
+  // ── Phase 3: Resolve data + Spotify IDs + render ────────────────────────
+  console.log('[digest] phase 3: resolving + rendering...');
+
+  // Resolve indices back to full items
+  const hnItems = allItems.hn;
+  const lobItems = allItems.lobsters;
+  const paperItems = allItems.papers;
+
+  const picks = [
+    ...(selection.hn || []).map(i => hnItems[i]).filter(Boolean),
+    ...(selection.lobsters || []).map(i => lobItems[i]).filter(Boolean),
+  ];
+  const resolvedPapers = (selection.papers || []).map(i => paperItems[i]).filter(Boolean);
+
+  // Resolve music indices from pool (all have verified Spotify IDs)
+  const musicPicks = (selection.music || []).map(i => SPOTIFY_POOL[i]).filter(Boolean);
+  const musicForTemplate = musicPicks.map(m => ({
+    artist: m.artist, title: m.title, spotify_id: m.id,
+  }));
+
+  const html = renderHTML({
+    dateStr: timeStr,
+    greeting: hello,
+    picks,
+    papers: resolvedPapers,
+    music: musicForTemplate,
+    reflection: selection.reflection || '',
+  });
+
+  const spark = {
+    id: sparkId,
+    type: 'spark',
+    title: 'nw digest \u00b7 ' + shortDate,
+    timestamp: new Date().toISOString(),
+    html,
+  };
+
+  const sparkFile = join(SPARKS_DIR, sparkId + '.json');
+  writeFileSync(sparkFile, JSON.stringify(spark));
 
   try {
-    for await (const msg of query({ prompt, options: {
-      maxTurns: 10,
-      cwd: REPO_DIR,
-      allowDangerouslySkipPermissions: true,
-      permissionMode: 'bypassPermissions',
-      system,
-    }, env, signal: timeoutSignal })) {
-      if (msg.type === 'assistant') {
-        for (const block of msg.message?.content || []) {
-          if (block.type === 'text') {
-            if (block.text.includes('SPARK_ID=')) found = true;
-            process.stdout.write(block.text);
-          }
-        }
-      }
-      if (msg.type === 'result') {
-        if ((msg.result || '').includes('SPARK_ID=')) found = true;
-      }
-    }
+    await pushToPane(sparkId);
   } catch (err) {
-    console.error('[digest] SDK error:', err.message);
-    process.exit(1);
+    console.error('[digest] pushed spark but /current failed:', err.message);
   }
 
   const totalTime = ((Date.now() - t0) / 1000).toFixed(1);
-
-  if (found || existsSync(join(SPARKS_DIR, sparkId + '.json'))) {
-    try {
-      await pushToPane(sparkId);
-      console.log('\n[digest] done in ' + totalTime + 's — pushed ' + sparkId + ' to right pane');
-    } catch (err) {
-      console.error('[digest] failed to push to /current:', err.message);
-    }
-  } else {
-    console.error('[digest] no spark file found after ' + totalTime + 's — digest failed');
-    process.exit(1);
-  }
+  console.log('[digest] done in ' + totalTime + 's — ' + sparkId);
+  console.log('[digest] picks: ' + picks.length + ' items, ' + resolvedPapers.length + ' papers, ' + musicPicks.length + ' tracks (spotify)');
 }
 
 runDigest().catch(err => {
