@@ -1190,10 +1190,10 @@ async function serveStatic(url, res, req) {
       const injected = html.includes('</body>')
         ? html.replace('</body>', LIVERELOAD_SCRIPT + '</body>')
         : html + LIVERELOAD_SCRIPT;
-      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
       res.end(injected);
     } else {
-      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
       res.end(content);
     }
     return true;
@@ -1512,15 +1512,32 @@ server.listen(PORT, () => {
   }
   reconcileDigestState();
 
+  // Read .env file for Spotify credentials (not in process.env unless server was started with them)
+  function loadDotEnv() {
+    const envFile = join(REPO_DIR, '.env');
+    if (!existsSync(envFile)) return {};
+    return Object.fromEntries(
+      readFileSync(envFile, 'utf8').trim().split('\n')
+        .filter(l => l && !l.startsWith('#'))
+        .map(l => { const eq = l.indexOf('='); return eq > 0 ? [l.slice(0, eq), l.slice(eq + 1)] : null; })
+        .filter(Boolean)
+    );
+  }
+
   function spawnDigest(reason) {
     if (!existsSync(DIGEST_SCRIPT)) {
       console.log(`[cron] digest script not found at ${DIGEST_SCRIPT}`);
       return;
     }
     console.log(`[cron] running digest (${reason})`);
+    const dotEnv = loadDotEnv();
     const cleanEnv = {
       ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))),
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || dotEnv.CLAUDE_CODE_OAUTH_TOKEN,
+      SPOTIFY_ID: process.env.SPOTIFY_ID || dotEnv.SPOTIFY_ID,
+      SPOTIFY_SECRET: process.env.SPOTIFY_SECRET || dotEnv.SPOTIFY_SECRET,
+      SPOTIFY_ACCESS_TOKEN: process.env.SPOTIFY_ACCESS_TOKEN || dotEnv.SPOTIFY_ACCESS_TOKEN,
+      SPOTIFY_REFRESH_TOKEN: process.env.SPOTIFY_REFRESH_TOKEN || dotEnv.SPOTIFY_REFRESH_TOKEN,
       NODE_PATH: '/app/node_modules',
       NW_WORKSPACE: REPO_DIR,
     };
@@ -1552,6 +1569,19 @@ server.listen(PORT, () => {
     if (h >= 6 && lastRun !== today) {
       writeFileSync(DIGEST_FLAG, today);
       spawnDigest('6am daily');
+    }
+  }, 60 * 1000);
+
+  // 3pm Friday afternoon edition — fires once at/after 3pm Montreal
+  const DIGEST_3PM_FLAG = join(SESSIONS_DIR, 'digest-3pm-run.txt');
+  setInterval(() => {
+    const h = montrealHour();
+    const today = montrealDateStr();
+    const lastRun = existsSync(DIGEST_3PM_FLAG)
+      ? readFileSync(DIGEST_3PM_FLAG, 'utf8').trim() : '';
+    if (h >= 15 && lastRun !== today) {
+      writeFileSync(DIGEST_3PM_FLAG, today);
+      spawnDigest('3pm afternoon');
     }
   }, 60 * 1000);
 

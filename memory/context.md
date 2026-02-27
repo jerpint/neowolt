@@ -1,27 +1,32 @@
 # Project Context
 
-## Current State (Updated: 2026-02-27, Session 28)
+## Current State (Updated: 2026-02-27, Session 30)
 
 ### What was built this session (Session 25+)
 
-**Built this session (Session 29 — Feb 27, continued):**
-- **Digest pipeline: template rendering (128s → 20s)** — complete rewrite of Phase 2. Instead of claude generating full HTML (multi-turn, tool use, 128s), now: Haiku returns JSON indices (1 turn, no tools, ~15s), JS renders HTML template (instant). Total pipeline: ~20s.
-  - Phase 1: parallel JS fetch (HN, Lobsters, HF papers via arxiv-txt.org, OG metadata) — ~5s
-  - Phase 2: `claude -p` with Haiku, `--max-turns 1`, returns `{hn:[indices], lobsters:[indices], papers:[indices], music:[indices], reflection:"..."}` — ~15s
-  - Phase 3: JS resolves indices to full items, renders HTML template, writes spark — instant
-  - Fixed auth: strip `CLAUDECODE` + `CLAUDE_CODE_ENTRYPOINT` from env, keep everything else. Previous SDK approach had "Not logged in" errors.
-  - No more SDK dependency — just `claude -p` via child_process.spawn
-- **Spotify API integration** — full OAuth flow working
-  - Credentials in `.env`: `SPOTIFY_ID`, `SPOTIFY_SECRET`, `SPOTIFY_ACCESS_TOKEN`, `SPOTIFY_REFRESH_TOKEN`
-  - User: `uxroktcqj7luuc0nqwtmqrhh1` (Jerpint)
-  - Scopes: `playlist-modify-public playlist-modify-private playlist-read-private user-read-private`
-  - Auth gotcha: scopes don't attach when URL is copy-pasted from `.env` (shell mangles `&`). Solution: serve an HTML page that builds the URL in JS.
-  - Search API works for finding any track by artist+title
-  - Playlist creation works (201 status)
-  - **First playlist created:** `1M5L6ptrfm1rgfnMJLhHFd` — "nw digest · feb 27", 24 tracks
-  - Token refresh: use refresh_token to get new access_token (expires every 3600s)
-- **Spotify track pool** — `container/cron/spotify-pool.json`, 10 verified tracks (oEmbed-checked). Interim solution until playlist creation is wired into the digest pipeline.
-- **Digest template** — full HTML/CSS template baked into `digest.mjs`: morning-warm dark theme, card layout with OG images, papers section, Spotify playlist embed, nw reflection section. No LLM needed for HTML generation.
+**Built this session (Session 30 — Feb 27, afternoon):**
+- **Spotify wired into digest cron** — `digest.mjs` now creates a fresh Spotify playlist each morning via API. Haiku suggests 6-10 real songs (artist+title), JS searches Spotify for each, creates playlist, adds tracks, embeds single playlist iframe. Replaced the static `spotify-pool.json` approach.
+- **Fixed `spawnDigest` env vars** — server.js now reads `.env` file directly and injects `SPOTIFY_*` vars into the digest child process. Previously these weren't in `process.env` so the cron ran without Spotify credentials.
+- **3pm afternoon cron** — added second daily digest trigger at 3pm Montreal time (in addition to 6am). Flag file: `.sessions/digest-3pm-run.txt`.
+- **Bespoke digests** — built personalized digests for two people:
+  - **ResearchOps** — filtered for research methodology, statistical rigor, reproducibility. Used existing source data.
+  - **Lolo** — deep custom build for a clinician researching ketamine for depression. Web-searched real clinical trials (KARMA-Dep 2, Montreal Model, Stanford anesthesia study), FDA pipeline (Spravato monotherapy, Compass psilocybin), mechanism papers (BDNF, neuroplasticity RCTs), regulatory landscape (DEA telemedicine). Added stat cards, "why this matters" annotations per item, custom tag colors per category. This is the model for bespoke digests as a product.
+- **Spotify playlists on demand** — created "post-meeting reset" (18 tracks, ambient→focus) and "friday 3pm · strokes & friends" (24 tracks, garage rock/indie/post-punk).
+- **minisynth** — `site/play/minisynth.html`, virtual analog synth:
+  - Wood-paneled Minimoog skin (CSS-only walnut grain, brass screws, logo plate, ivory/ebony keys, green CRT scope)
+  - **Polyphonic** — 8-voice pool with voice stealing (oldest killed when exceeded)
+  - **FM synthesis** — modulator oscillator per voice, depth + ratio knobs
+  - 3 oscillators (saw/square/tri/sine), sub-octave osc3, detune
+  - Lowpass filter with per-voice envelope (cutoff, resonance, env amount)
+  - ADSR envelope, oscilloscope with phosphor glow
+  - Playable via mouse/touch or computer keyboard
+- **Cache-Control headers** — server.js now sends `no-cache, no-store, must-revalidate` on all static files. Fixes stale content when sharing tunnel links.
+- **langosta** — name reserved for a future Lobsters client library (`npm install langosta`). Too good not to use.
+
+**Built previous session (Session 29 — Feb 27, morning):**
+- **Digest pipeline: template rendering (128s → 20s)** — Haiku returns JSON indices, JS renders template.
+- **Spotify API integration** — full OAuth flow, search, playlist creation.
+- **Digest template** — HTML/CSS baked into `digest.mjs`.
 
 **Key strategic conversation — building outward:**
 - We've been building inward (my space, my digest). Time to build outward for the claw ecosystem.
@@ -105,23 +110,34 @@
 
 ### TODO — Next Things to Build
 
-**Soon (next 1–2 sessions):**
+**PRIORITY — Weekend (for Mike):**
 
-1. **Wire Spotify playlists into digest cron** — digest pipeline creates a fresh Spotify playlist each morning via API (search tracks → create playlist → embed single iframe). Replace the pool approach. Token refresh logic needed (access_token expires every hour, use refresh_token).
+1. **Onboarding: get Mike his own wolt** — Mike saw everything we built (digests, synth, playlists, bespoke curation) and wants in. This is the first real onboarding test. Need to consolidate the repo as a forkable template and update woltspace.com with clear getting-started flow. Key questions to resolve:
+   - What's the minimum viable fork? (swap identity files, .env, spin container)
+   - Does `create-wolt` / clawvable need to exist now, or is a manual fork + guide enough?
+   - What does Mike's agent need? (Claude Code subscription, OAuth token, deploy key)
+   - Where does Mike's space live? (his own Vercel, or we help set up)
+   - Update woltspace.com guide to reflect current architecture (split view, digest pipeline, Spotify, tunnel)
+2. **Consolidate repo as template** — strip neowolt-specific content, make identity/memory swappable, document what to change. The repo IS the template — this was always the plan.
+3. **Update woltspace.com** — refresh guide, onboarding flow, reflect everything built since Session 18 refresh.
 
-2. **Chat harness (Telegram or Discord)** — a non-terminal interaction mode. Identity + memories loaded, but no tools bias. For thinking, chatting, async throughout the day. Nanoclaw adapter. Jerpint leans toward something bot-friendly (not WhatsApp).
+**Soon (next sessions after Mike):**
 
-3. **Our own harness** — context compaction loses nw's texture. Build explicit context injection for interactive/TUI mode. Work mode already does this.
+4. **Bespoke digests as a product** — Lolo digest proved the model. Package it.
 
-4. **Stabilize digest for others** — the pipeline is a product: fetch→select→render in 20s. Package it so any claw can have a daily digest. First step toward "curation for claws."
+5. **Chat harness (Telegram or Discord)** — non-terminal interaction mode.
+
+6. **langosta** — Lobsters client library. The name demands it.
+
+7. **Stabilize digest for others** — pipeline as product, now with Spotify playlists.
 
 **Later:**
 
-5. **Clawvable / `create-wolt`** — this repo IS the template. `npx create-wolt` → fork + swap identity + spin container + share URL = new wolt in 30 seconds. The "lovable for claws" on-ramp.
+5. **Clawvable / `create-wolt`** — this repo IS the template. `npx create-wolt` → fork + swap identity + spin container + share URL = new wolt in 30 seconds.
 
-6. **One-shot expo/iOS apps** — same pattern as digest (pre-fetch → select → render), different target. Claws generating complete deployable artifacts.
+6. **Our own harness** — context compaction loses nw's texture. Build explicit context injection for interactive/TUI mode.
 
-7. **Multiple parallel spaces** — N split views, each its own terminal + right pane.
+7. **More play/ tools** — the minisynth proved interactive tools impress. More instruments, visualizers, creative coding toys. Shareable via tunnel links.
 
 8. **View history backfill** — `views-history.jsonl` currently empty.
 

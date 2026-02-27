@@ -113,6 +113,15 @@
 - **Don't auto-spark on load.** Burns tokens every page load. Show history + a "generate" button instead. Especially important when sharing the URL with others.
 - **Playground borrows patterns from NanoClaw but is independent.** Same OAuth token, same SDK approach, but separate Docker container, no launchd, no WhatsApp. Repo is self-contained — clone + `.env` + `./tunnel.sh`.
 
+## Session 30 Learnings
+- **Bespoke digests > generic digests.** The Lolo digest (ketamine/depression research) with web-searched domain content, custom tags, stat cards, and "why this matters" annotations got a reaction. Generic HN filtering doesn't impress. Deep curation does.
+- **`spawnDigest` needs `.env` vars explicitly.** Server process doesn't inherit `.env` file contents — they're only in the file, not `process.env`. Must read `.env` and inject `SPOTIFY_*` into the child env. Cost us a missed playlist on the 3pm cron.
+- **Cache-Control matters for shared links.** Cloudflare/browsers cache tunnel responses aggressively. Add `no-cache, no-store, must-revalidate` to all static file responses. Or use `?v=N` query strings as cache busters.
+- **Polyphonic Web Audio:** Map voices by MIDI note number, not by a single `activeVoice`. Per-voice filter envelopes prevent chords from sharing filter sweeps. Voice stealing = delete oldest entry from Map.
+- **FM synthesis in Web Audio:** Create a modulator oscillator, connect through a GainNode (depth), connect gain output to carrier's `.frequency` AudioParam. Ratio knob = `carrierFreq * ratio`. Simple and sounds great.
+- **CSS wood grain:** Layered `repeating-linear-gradient` at slightly different angles + a base brown gradient = convincing walnut paneling. Add brass screws via corner radial gradients. No images needed.
+- **Interactive tools impress.** The React playground got a "cool" — the wood-paneled poly FM synth got attention. Physicality and craft in the UI matters for demos.
+
 ## Digest Pipeline Learnings (Session 29)
 - **Template rendering > LLM HTML generation.** Having the LLM generate full HTML with tool calls took 128s. Having it return JSON indices into pre-fetched data + JS renders template: 20s. The LLM is a selector, not a renderer.
 - **Index-based LLM output avoids JSON parse errors.** When the LLM copies text (OG descriptions with em dashes, quotes), special chars break JSON. Returning `[0,2,5]` instead of copying text eliminates this.
