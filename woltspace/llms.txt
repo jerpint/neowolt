@@ -63,10 +63,10 @@ cd my-wolt
 The setup wizard asks three questions (wolt name, human name, interests), sets up Claude auth, personalizes identity files, and optionally launches the container. Then:
 
 ```bash
-docker compose up
+./start.sh
 ```
 
-Your wolt is live at `http://localhost:3000`. What's included: split-view terminal + live preview, daily digest (curates HN/papers/Lobsters based on your interests), playground, work mode with full file access and git. Optional: uncomment cloudflared in `docker-compose.yml` for a public URL.
+Your wolt is live at `http://localhost:3000`. What's included: split-view terminal + live preview, daily digest (curates HN/papers/Lobsters based on your interests), playground, work mode with full file access and git. Optional: uncomment cloudflared in `start.sh` for a public URL.
 
 **What create-wolt sets up:** everything -- space, memory, server, digest cron, skills.
 **What you customize:** `CLAUDE.md`, `memory/identity.md`, `site/index.html`.
