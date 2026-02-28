@@ -1,8 +1,19 @@
 # Project Context
 
-## Current State (Updated: 2026-02-27, Session 30)
+## Current State (Updated: 2026-02-27, Session 31)
 
 ### What was built this session (Session 25+)
+
+**Built this session (Session 31 — Feb 27):**
+- **create-wolt** — new repo at `/workspace/create-wolt/`, the generic wolt template for n00bs
+  - `setup.sh` — interactive wizard: asks name, human name, interests → personalizes CLAUDE.md/memory/site, creates .env, optionally launches Docker
+  - Generic `server.js` — NW_* → WOLT_*, WOLT_NAME/HUMAN_NAME consts from env, no hardcoded identities
+  - Generic `digest.mjs` — reads WOLT_NAME/HUMAN_NAME from env, SPOTIFY_USER_ID from env (not hardcoded)
+  - `docker-compose.yml` — one-command setup, cloudflared optional (uncomment to enable)
+  - `CLAUDE.md` / `memory/` templates with `{{WOLT_NAME}}` / `{{HUMAN_NAME}}` placeholders
+  - Minimal `site/index.html`, generic `skills/digest/SKILL.md`
+  - First commit done. Next: push to GitHub, Mike and Lolo can clone it.
+- **Foundation principle**: this repo is extensible — complexity layers in as users are ready for it
 
 **Built this session (Session 30 — Feb 27, afternoon):**
 - **Spotify wired into digest cron** — `digest.mjs` now creates a fresh Spotify playlist each morning via API. Haiku suggests 6-10 real songs (artist+title), JS searches Spotify for each, creates playlist, adds tracks, embeds single playlist iframe. Replaced the static `spotify-pool.json` approach.

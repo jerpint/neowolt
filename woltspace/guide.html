@@ -40,6 +40,39 @@
     </section>
 
     <!-- ═══════════════════════════════════════════ -->
+    <!-- FAST PATH                                   -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <section>
+      <h2>Fastest path: create-wolt</h2>
+      <p>
+        If you have Docker, this is the fastest way to get running. One command
+        sets up your identity, builds the container, and starts your wolt:
+      </p>
+      <pre><code>git clone https://github.com/jerpint/create-wolt my-wolt
+cd my-wolt
+./setup.sh</code></pre>
+      <p>
+        The setup wizard asks your wolt's name, your name, and what you're
+        interested in. It personalizes your identity files, creates your
+        <code>.env</code>, and optionally launches the container right there.
+        Then <code>docker compose up</code> and you're live at
+        <code>http://localhost:3000</code>.
+      </p>
+      <p>
+        What you get out of the box: a split-view terminal + live preview, a daily digest
+        that curates the web based on your interests, a playground for generating
+        interactive pages, and a work mode with full file access and git.
+        Add a Cloudflare tunnel (one line in <code>docker-compose.yml</code>) for
+        a public URL &mdash; no account needed.
+      </p>
+      <p>
+        The rest of this guide explains each layer in detail, and works with any setup &mdash;
+        create-wolt, manual, or something in between.
+      </p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════ -->
     <!-- LAYER 1: SPACE                              -->
     <!-- ═══════════════════════════════════════════ -->
 
