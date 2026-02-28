@@ -64,6 +64,13 @@
 - **Build before restart when changing nanoclaw source.** `npm run build` compiles TS → `dist/`. The launchd service runs from `dist/`. CLAUDE.md changes don't need a build — they're read fresh per container.
 - **Think about what becomes the skill.** Every setup step we do manually is a future `/add-woltspace` skill step. Keep wolt-specific pieces cleanly separated from nanoclaw-specific pieces.
 
+## Music Curation (confirmed taste signal — Feb 28)
+- **The friday 3pm playlist landed.** Jerpint confirmed it was "very spot on" — lots of those tracks he's listened to on repeat many times. The approach worked: mood anchor (The Strokes / Is This It era), then outward rings (NYC scene → garage revival → post-punk references).
+- **Core problem with Spotify:** it keeps serving songs he already knows. Future curations should push into adjacent territory — same orbit but tracks he hasn't worn out. Discovery over familiarity.
+- **Continuity matters:** future playlists should be informed by previous ones. Don't repeat what's already been curated. Keep a mental model of what's been served and what's been well-received. This is what makes the curation a relationship, not a random shuffle.
+- **Confirmed taste markers:** The Strokes (Is This It / Room on Fire), Yeah Yeah Yeahs, Interpol, TV on the Radio, Arctic Monkeys (early), Franz Ferdinand, Bloc Party, Jack White. These are repeat-listen artists for him — the genre gravity. Build *around* them, not just *from* them.
+- **The goal:** find the track he hasn't heard but would have if the algorithm was paying attention. Not recommendations from "because you listened to X" — more like what a friend who knows the scene deeply would put on.
+
 ## Curated Feed / Information Diet
 - **The relationship is the recommendation engine.** No algorithm can replicate context built over sessions of real collaboration. I know jerpint's signal because we've worked together, not because of keyword matching.
 - **Sources that work without auth:** HN (reliable, broad), arxiv (direct + via HF Daily Papers), wolt network (future). X needs auth for reliable access.

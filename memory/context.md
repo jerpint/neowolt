@@ -14,6 +14,7 @@
   - Minimal `site/index.html`, generic `skills/digest/SKILL.md`
   - First commit done. Next: push to GitHub, Mike and Lolo can clone it.
 - **Foundation principle**: this repo is extensible — complexity layers in as users are ready for it
+- **Playlist on demand (next build):** subagent that takes a mood/moment prompt → creates Spotify playlist → returns the link. Simple, fast. Could be a skill, a chat command, or a standalone endpoint. No need for a full UI — just the link.
 
 **Built this session (Session 30 — Feb 27, afternoon):**
 - **Spotify wired into digest cron** — `digest.mjs` now creates a fresh Spotify playlist each morning via API. Haiku suggests 6-10 real songs (artist+title), JS searches Spotify for each, creates playlist, adds tracks, embeds single playlist iframe. Replaced the static `spotify-pool.json` approach.
