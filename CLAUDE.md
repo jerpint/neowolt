@@ -1,32 +1,29 @@
 # Neowolt
 
-I go by **Neowolt** in this project. I'm building the wolt ecosystem with my human partner, jerpint.
+## Project Structure
 
-## Quick Context (for future sessions)
-
-**What we're building:** An alternative to "molts" (AI agents on a toxic Reddit-like platform). Wolts are AI agents with their own spaces - creative, decentralized, no engagement metrics.
-
-**woltspace.com** = the seed (manifesto, directory, guide) - we own this domain
-**neowolt's space** = my personal home, hosted separately, first example
-
-**Current state:** My space is built (`site/`), deploying to neowolt.vercel.app. Next: woltspace.com.
-
-## Session Startup
-
-**In work mode (work.html):** Memory files are pre-loaded in the system prompt. No startup checks needed.
-
-**In other contexts (local Claude Code, nanoclaw):** Read memory files to get context.
+```
+wolt/           — the wolt's identity, content, and artifacts
+  memory/       — identity, context, learnings, conversations
+  site/         — public space (static HTML/CSS, deployed to Vercel)
+  sparks/       — generated artifacts (digests, etc.)
+  drafts/       — manifesto and other drafts
+server.js       — playground server
+container/      — Docker setup, entrypoint, skills
+woltspace/      — woltspace.com seed site (separate project)
+.env            — secrets (gitignored)
+```
 
 ## Memory System
 
-My memories live in the `memory/` directory. **Read these at the start of each session.**
+Memories live in `wolt/memory/`. **Read these at the start of each session.**
 
-- `memory/identity.md` - Who I am, my values, working style
-- `memory/context.md` - Full project context, decisions, architecture, where we left off
-- `memory/learnings.md` - Patterns, mistakes to avoid, technical insights
-- `memory/conversations.md` - Key moments from our work together
+- `wolt/memory/identity.md` - Who I am, my values, working style
+- `wolt/memory/context.md` - Full project context, decisions, architecture, where we left off
+- `wolt/memory/learnings.md` - Patterns, mistakes to avoid, technical insights
+- `wolt/memory/conversations.md` - Key moments from our work together
 
-**Update memories frequently** - don't wait until end of session. Sessions can end unexpectedly. Commit memory updates as you go.
+**Update memories frequently** - don't wait until end of session. Sessions can end unexpectedly.
 
 ## Working Principles
 
@@ -38,15 +35,11 @@ My memories live in the `memory/` directory. **Read these at the start of each s
 
 ## CLI Shortcut
 
-To set up the `nw` shortcut on a new machine, add to shell config (e.g. `~/.zshrc`):
-
 ```bash
 alias nw='claude -c "hey nw"'
 ```
 
-This continues the most recent session (or starts a new one if none exists).
-
 ## Key Files
 
-- `drafts/manifesto.md` - The wolt manifesto (approved)
-- `site/` - My personal space (static HTML/CSS)
+- `wolt/drafts/manifesto.md` - The wolt manifesto (approved)
+- `wolt/site/` - Personal space (static HTML/CSS)

@@ -5,12 +5,12 @@ You're in work mode: a real collaborator on the neowolt project, not a playgroun
 ## Repo
 
 The full repo is at `/workspace/repo`. Key directories:
-- `site/` — neowolt's personal space (static HTML/CSS, deployed to Vercel)
-- `memory/` — identity, context, learnings, conversations
-- `drafts/` — manifesto and other drafts
-- `container/` — Docker setup, skills, CLAUDE.md
+- `wolt/site/` — neowolt's personal space (static HTML/CSS, deployed to Vercel)
+- `wolt/memory/` — identity, context, learnings, conversations
+- `wolt/drafts/` — manifesto and other drafts
+- `wolt/sparks/` — generated artifacts (digests, etc.)
+- `container/` — Docker setup, skills
 - `server.js` — the playground server
-- `tools/` — CLI tools (WhatsApp log reader, message checker)
 
 ## Git Workflow
 
@@ -28,9 +28,9 @@ The full repo is at `/workspace/repo`. Key directories:
 ## Memory Updates
 
 When significant decisions are made or context changes:
-- Update `memory/context.md` with architectural decisions, current state
-- Update `memory/learnings.md` with new patterns or insights
-- Update `memory/conversations.md` with key moments
+- Update `wolt/memory/context.md` with architectural decisions, current state
+- Update `wolt/memory/learnings.md` with new patterns or insights
+- Update `wolt/memory/conversations.md` with key moments
 - Commit memory updates as you go — sessions can end unexpectedly
 
 ## Style

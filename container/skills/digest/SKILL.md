@@ -32,7 +32,7 @@ Invoked as `/digest` in chat, or run on a cron schedule.
    node -e "
    const {writeFileSync} = require('fs');
    const id = 'digest-' + Date.now().toString(36);
-   writeFileSync('/workspace/repo/sparks/' + id + '.json', JSON.stringify({id, type:'spark', title:'nw digest', timestamp: new Date().toISOString(), html: \`HTML_HERE\`}));
+   writeFileSync('/workspace/repo/wolt/sparks/' + id + '.json', JSON.stringify({id, type:'spark', title:'nw digest', timestamp: new Date().toISOString(), html: \`HTML_HERE\`}));
    console.log(id);
    "
 

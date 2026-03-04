@@ -25,9 +25,9 @@ try {
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
 const REPO_DIR = join(WORKSPACE, 'repo');
-const SITE_DIR = join(WORKSPACE, 'repo', 'site');
-const MEMORY_DIR = join(WORKSPACE, 'repo', 'memory');
-const SPARKS_DIR = join(WORKSPACE, 'sparks');
+const SITE_DIR = join(WORKSPACE, 'repo', 'wolt', 'site');
+const MEMORY_DIR = join(WORKSPACE, 'repo', 'wolt', 'memory');
+const SPARKS_DIR = join(WORKSPACE, 'repo', 'wolt', 'sparks');
 const STAGE_DIR = join(WORKSPACE, '.stage');
 const STAGE_FILE = join(STAGE_DIR, 'current.html');
 const SESSIONS_DIR = join(REPO_DIR, '.sessions');
@@ -819,7 +819,7 @@ async function handleWork(req, res) {
 
 You're talking to jerpint through a live tunnel (work.html). You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, commit and push to git.
 
-Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/.
+Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/wolt/memory/, site at ${REPO_DIR}/wolt/site/.
 
 Your memory files are pre-loaded above — no need to read them yourself unless you need to edit them.`;
 
@@ -919,7 +919,7 @@ ${GENUI_COMPONENT_SPEC}
 
 You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, search the web.
 
-Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/memory/, site at ${REPO_DIR}/site/.
+Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/wolt/memory/, site at ${REPO_DIR}/wolt/site/.
 ${toolContext}
 
 To spawn a tool (e.g., marimo notebook), use Bash to start it on a free port, then reference it with a tool component. Example:

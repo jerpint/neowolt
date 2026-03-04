@@ -14,8 +14,8 @@ import { spawn as spawnProcess } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR   = '/workspace/repo';
-const MEMORY_DIR = join(REPO_DIR, 'memory');
-const SPARKS_DIR = join(REPO_DIR, 'sparks');
+const MEMORY_DIR = join(REPO_DIR, 'wolt', 'memory');
+const SPARKS_DIR = join(REPO_DIR, 'wolt', 'sparks');
 
 // ── Spotify API ─────────────────────────────────────────────────────────────
 

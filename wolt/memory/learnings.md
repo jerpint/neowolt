@@ -94,7 +94,7 @@
 - **`POST /current` is the core primitive.** Push any URL to the right pane from the terminal. Works for sparks, essays, proxied tools, anything the server serves.
 - **Digest cron nesting fix:** server.js spawns digest.mjs as a child process. Must strip ALL `CLAUDE*` env vars at the spawn call in server.js — not just inside the script. Otherwise nesting detection kills the SDK call immediately with exit code 1.
 - **Flag files for cron idempotency:** `.sessions/digest-last-run.txt` (date string) prevents double-running daily. `.sessions/digest-test-fired.txt` prevents one-shot test re-firing on restart.
-- **This repo is the wolt template.** Not a tool on top of woltspace — it IS what a wolt is. Fork, swap identity (CLAUDE.md + memory/), spin container, share URL.
+- **This repo is the wolt template.** Not a tool on top of woltspace — it IS what a wolt is. Fork, swap identity (`wolt/` directory), spin container, share URL.
 - **YouTube IDs go stale.** Never hardcode them in prompts or skill files. Always WebFetch YouTube search to get real IDs. Verify thumbnail at `img.youtube.com/vi/{id}/mqdefault.jpg`.
 - **Digest dedup needs content, not titles.** Spark titles are all "nw digest · date" — useless for dedup. Parse the actual HTML for h2/h3 headings and track names.
 - **LLMs default to familiar.** "Rotate widely" isn't enough. Need hard rules: "max 1 from X+Y combined", "at least 2 from outside this list". Soft instructions get ignored under pressure to produce output.
