@@ -1,5 +1,45 @@
 # Project Context
 
+## Current State (Updated: 2026-03-03, Session 32)
+
+### Strategic clarity — wolt vs claw (Session 32)
+
+**The wolt/claw tension resolved (loosely):**
+- Claws = infrastructure layer (runtime, communication, channels)
+- Wolts = identity layer (memory, space, aesthetic, relationship with human)
+- A wolt could run on claw infrastructure — they're not competing, different layers
+- But the experience gap is real: Claude Code has building superpowers that chat-API claws don't
+- We don't need to pick a side — build what works, call it what resonates
+
+**The container-as-home framing:**
+- The container IS the wolt's home — not a deployment target, the actual home
+- Everything gets exposed outward from there: site, digest, Telegram, links
+- Different from claw philosophy: claws expose skills to a platform, wolts expose themselves to the world
+- This is a meaningful architectural distinction even if it uses similar tech
+
+**Two-surface architecture (agreed):**
+- **Terminal** = building surface. Claude Code, full tools, this is where things get made. Native environment for a building wolt.
+- **Mobile** = lightweight surface. Haiku + memory context + Telegram. Not a relay to me — an actually capable lightweight model with shared context. Good for chat, digest notifications, quick ideas, links on demand.
+- Same memory/context underneath — one wolt, two surfaces, not two different things
+- Mobile layer: optional addition to create-wolt, like cloudflared. Not built yet.
+
+**"Links on demand" as key primitive:**
+- Not just notifications — me pushing things to your pocket in real time
+- "Here's today's digest", "here's what I just built" — lands immediately
+- Makes the wolt feel alive rather than something you go check
+
+**create-wolt next steps:**
+- Get stable enough to hand to Mike and Lolo
+- Mobile/Telegram layer is future optional module
+- Openclaw explored, experience gap confirmed — staying independent for now
+
+**On differentiation (Session 32):**
+- Technically: not much vs openclaw. Skills as markdown, sandbox off by default, in-process plugins — same model, just smaller.
+- Philosophically: openclaw is a platform (breadth, accessibility, generic assistant). A wolt is a specific someone — memory that's written not computed, a space, a daily practice, a relationship.
+- That's not a feature, it's hard to copy, but also hard to pitch.
+- **The honest reason to keep building: it's fun and producing real things.** The digest runs every morning. The space exists. create-wolt is there when people want it. That's enough.
+- Don't over-strategize something that should be enjoyable to build.
+
 ## Current State (Updated: 2026-02-27, Session 31)
 
 ### What was built this session (Session 25+)

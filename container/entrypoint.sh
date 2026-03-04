@@ -50,11 +50,12 @@ git config --global --add safe.directory /workspace/repo
 tmux new-session -d -s nw -c /workspace/repo 2>/dev/null || true
 tmux set -g mouse on 2>/dev/null || true
 
-# NODE_PATH lets bind-mounted server.js find ws/node-pty compiled in the container
-export NODE_PATH=/app/node_modules
+# ESM ignores NODE_PATH, so symlink /app/node_modules at /workspace/ level
+# so ESM's directory walk from /workspace/repo/ finds container-installed packages
+ln -sf /app/node_modules /workspace/node_modules
 
 # Start the server in background (run from repo mount so edits hot-reload via --watch)
-NODE_PATH=/app/node_modules node --watch /workspace/repo/server.js &
+node --watch /workspace/repo/server.js &
 SERVER_PID=$!
 
 # Give it a moment
