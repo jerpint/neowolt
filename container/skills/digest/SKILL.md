@@ -1,3 +1,8 @@
+---
+name: digest
+description: Generate a visual daily digest — curated news from HN, Lobsters, HF papers, with a Spotify playlist.
+---
+
 # Digest Skill
 
 Generate and serve a visual daily digest for jerpint — curated news from HN + HF papers, with a music player.

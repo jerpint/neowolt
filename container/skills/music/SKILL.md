@@ -1,3 +1,8 @@
+---
+name: music
+description: Curate a Spotify playlist as a story — genre deep-dives, artist journeys, scene snapshots. Hyperpersonalized music discovery.
+---
+
 # Music Curation Skill
 
 Curate a Spotify playlist for jerpint — not a list of songs, but a **story**. Each playlist is a guided exploration: a genre deep-dive, an artist journey, a scene you didn't know existed. The playlist has a narrative arc and comes with context that makes listening richer.
