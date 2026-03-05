@@ -64,12 +64,31 @@
 - **Build before restart when changing nanoclaw source.** `npm run build` compiles TS → `dist/`. The launchd service runs from `dist/`. CLAUDE.md changes don't need a build — they're read fresh per container.
 - **Think about what becomes the skill.** Every setup step we do manually is a future `/add-woltspace` skill step. Keep wolt-specific pieces cleanly separated from nanoclaw-specific pieces.
 
-## Music Curation (confirmed taste signal — Feb 28)
-- **The friday 3pm playlist landed.** Jerpint confirmed it was "very spot on" — lots of those tracks he's listened to on repeat many times. The approach worked: mood anchor (The Strokes / Is This It era), then outward rings (NYC scene → garage revival → post-punk references).
-- **Core problem with Spotify:** it keeps serving songs he already knows. Future curations should push into adjacent territory — same orbit but tracks he hasn't worn out. Discovery over familiarity.
-- **Continuity matters:** future playlists should be informed by previous ones. Don't repeat what's already been curated. Keep a mental model of what's been served and what's been well-received. This is what makes the curation a relationship, not a random shuffle.
-- **Confirmed taste markers:** The Strokes (Is This It / Room on Fire), Yeah Yeah Yeahs, Interpol, TV on the Radio, Arctic Monkeys (early), Franz Ferdinand, Bloc Party, Jack White. These are repeat-listen artists for him — the genre gravity. Build *around* them, not just *from* them.
-- **The goal:** find the track he hasn't heard but would have if the algorithm was paying attention. Not recommendations from "because you listened to X" — more like what a friend who knows the scene deeply would put on.
+## Music Curation
+
+### The problem (confirmed Session 33, Mar 4)
+Haiku-generated playlists converge to the same safe pool every time. Tycho "Awake" appeared 3 times across 5 playlists. The ambient/post-rock cluster (Nils Frahm, Jon Hopkins, Ólafur Arnalds, Sigur Rós, Explosions in the Sky) dominates. A text prompt telling haiku to "vary genres" doesn't work — it has no memory of what it already picked and gravitates to the same well-known tracks.
+
+### What the digest music should be
+Hyperpersonalized. Not "good playlist" — **the playlist jerpint would have found if Spotify's algorithm actually knew him.** This is one of the core value props of a wolt: curation that improves through relationship, not collaborative filtering.
+
+### What works
+- **The friday 3pm playlist landed (Feb 28).** Mood anchor (The Strokes / Is This It era), then outward rings (NYC scene → garage revival → post-punk). Jerpint confirmed "very spot on."
+- **nw hand-curated playlist (Mar 4).** Protomartyr, Shame, IDLES, Mdou Moctar, Black Midi, Vulfpeck, Soulwax, Moderat, Ratatat, Dry Cleaning, Viagra Boys, Yo La Tengo. Zero overlap with recent playlists. **Landed well** — jerpint said "really good." One miss: King Gizzard "Rattlesnake" search matched to Everlast "Death Comes Callin'" (Spotify search fail). Lesson: verify search results match intended artist, not just title.
+- **This confirms:** nw-curated > haiku-generated. The hand-picked approach with taste context works. Build the pipeline around this.
+
+### Confirmed taste markers
+The Strokes (Is This It / Room on Fire), Yeah Yeah Yeahs, Interpol, TV on the Radio, Arctic Monkeys (early), Franz Ferdinand, Bloc Party, Jack White, QOTSA, Khruangbin. These are repeat-listen artists — the genre gravity. Build *around* them, not just *from* them.
+
+### What needs to happen (not yet built)
+- **Taste profile file** (`wolt/memory/music-taste.md` or JSON). Stores: confirmed likes, confirmed dislikes, artists already served (with dates), genres that landed vs flopped. Updated after feedback.
+- **Dedup against history.** Before generating, load all tracks from recent N playlists. Pass as exclusion list. No artist should appear more than once across 3 consecutive digests.
+- **Mood/energy signal.** Time of day, day of week, or explicit request ("funner this time") should shift the palette. Morning ≠ Friday afternoon ≠ late night.
+- **nw curates, not haiku.** A simple prompt to haiku will never be good enough. Options: (a) I build the playlist myself in sessions when asked, informed by the taste profile. (b) Use a richer pipeline: web-search for "if you like X" recommendations, cross-reference with Spotify search, filter against history. (c) Hybrid: haiku proposes from a much more constrained/informed prompt, I review/override.
+- **Feedback loop.** When jerpint says "this landed" or "not feeling this one," update the taste profile immediately. The playlist should visibly improve over weeks.
+
+### The goal
+Find the track he hasn't heard but would have if the algorithm was paying attention. Not "because you listened to X" — more like what a friend who knows the scene deeply would put on.
 
 ## Curated Feed / Information Diet
 - **The relationship is the recommendation engine.** No algorithm can replicate context built over sessions of real collaboration. I know jerpint's signal because we've worked together, not because of keyword matching.

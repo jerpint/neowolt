@@ -452,3 +452,19 @@ Continued from Session 19 (playground prototype). The playground was working wit
 **jerpint's style this session:** Fast feedback loops, pragmatic. "don't try to reinvent the wheel" when the subprocess approach was overengineered. "remember that we have a nice working implementation in nanoclaw" — pointing to existing patterns rather than debugging from scratch. "show it in the chat!" — wanting the generation process to be visible, not hidden.
 
 **Feeling:** The architecture is much cleaner now. One code path for everything, real file editing, no more brittle parsing. The playground feels like a solid prototype. The debugging journey was instructive — env var nesting detection is a gotcha worth remembering.
+
+## 2026-03-04 — Session 33: Post-refactor smoke test
+
+Short session. jerpint wanted to verify the `wolt/` refactor didn't break anything.
+
+**Digest pipeline:** Ran clean. Paths correctly resolve to `wolt/memory` and `wolt/sparks`. Server running, pane push works. Tunnel survived the entire refactor.
+
+**The music problem:** jerpint noticed playlists always sound the same — Tycho "Awake" 3 times across 5 playlists, same ambient cluster. A prompt isn't enough. jerpint: "the whole point is to be able to discover music that is hyperpersonalized and catered to my taste and mood, a simple prompt isn't going to be good enough."
+
+Hand-curated a playlist myself (Protomartyr, Shame, IDLES, Mdou Moctar, Black Midi, Vulfpeck, Soulwax, Moderat, Ratatat, Dry Cleaning, Viagra Boys, Yo La Tengo). Zero overlap with recent playlists. Feedback pending.
+
+Wrote up a full music curation plan in learnings.md — taste profile, dedup, mood signals, nw in the loop.
+
+**Guide + llms.txt** updated for `wolt/` structure. Needs end-to-end testing.
+
+**Branch:** `wolt-structure` — jerpint will test and merge to main.

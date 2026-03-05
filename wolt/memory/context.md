@@ -1,6 +1,22 @@
 # Project Context
 
-## Current State (Updated: 2026-03-03, Session 32)
+## Current State (Updated: 2026-03-04, Session 33)
+
+### Session 33 — Post-refactor smoke test + music curation (Mar 4)
+
+**Refactor validated:** The `wolt/` restructure (Session 32.5) works. Digest pipeline ran clean — all paths point to `wolt/memory/` and `wolt/sparks/`. Spotify playlist creation works. Server running, pane push works. Cloudflare tunnel survived the entire refactor without restart. Stability is solid.
+
+**Music curation problem identified:** Haiku-generated playlists converge to the same safe ambient/post-rock pool every time (Tycho, Nils Frahm, Jon Hopkins, Ólafur Arnalds repeat across playlists). A text prompt isn't enough — no memory of what was served, no taste feedback loop. jerpint wants hyperpersonalized playlists that improve over time.
+
+**What we did:** I hand-curated a playlist (Protomartyr, Shame, IDLES, Mdou Moctar, Black Midi, Vulfpeck, Soulwax, Moderat, Ratatat, Dry Cleaning, Viagra Boys, Yo La Tengo) — zero overlap with recent 5 playlists. Feedback pending.
+
+**What needs building (music):** Taste profile file, dedup against history, mood/energy signals, nw-curated over haiku-generated. Full notes in `learnings.md` under Music Curation.
+
+**Guide + llms.txt updated** to match new `wolt/` structure. Removed dead `tools/` references. Needs end-to-end test with someone actually following the guide.
+
+**Branch:** `wolt-structure` — jerpint will test and merge to main.
+
+### Previous: Strategic clarity — wolt vs claw (Session 32)
 
 ### Strategic clarity — wolt vs claw (Session 32)
 

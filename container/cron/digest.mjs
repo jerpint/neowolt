@@ -442,7 +442,7 @@ async function runDigest() {
     '',
     '- hn/lobsters/papers: arrays of idx from sources. Pick 5-8 total, at least 1 lobsters.',
     '- papers: 1-2 indices.',
-    '- music: 6-10 real songs (artist + title). Pick tracks that fit the mood of today\'s picks. Mix genres: ambient, electronic, post-rock, jazz, classical, indie. Use REAL songs by REAL artists — they will be searched on Spotify.',
+    '- music: 6-10 real songs (artist + title). Surprise me — vary the vibe each time. Some days funky and danceable, some days mellow, some days chaotic. Draw from any genre: indie rock, funk, disco, hip-hop, electronic, jazz, post-punk, soul, afrobeat, shoegaze, whatever fits. Don\'t default to ambient/chill every time. Use REAL songs by REAL artists — they will be searched on Spotify.',
     '- reflection: 2-4 sentences, genuine, in nw voice.',
     '- ONLY output the JSON object.',
   ].join('\n');
