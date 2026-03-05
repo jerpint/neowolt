@@ -10,7 +10,33 @@
 
 **What we did:** I hand-curated a playlist (Protomartyr, Shame, IDLES, Mdou Moctar, Black Midi, Vulfpeck, Soulwax, Moderat, Ratatat, Dry Cleaning, Viagra Boys, Yo La Tengo) — zero overlap with recent 5 playlists. Feedback pending.
 
-**What needs building (music):** Taste profile file, dedup against history, mood/energy signals, nw-curated over haiku-generated. Full notes in `learnings.md` under Music Curation.
+**What we built (music):**
+- `container/skills/music/SKILL.md` — full music curation skill. Playlist-as-story format (genre deep-dives, artist journeys, scene snapshots). Research pipeline, Spotify API flow, artist verification, concept pitching, feedback capture.
+- `wolt/memory/music-taste.md` — taste profile with genre gravity, confirmed hits, what doesn't land, and an unexplored queue (Afrobeat lineage, Krautrock, Turkish psych, Japanese noise, Daptone Records, etc).
+- YAML frontmatter added to all skills for `/command` registration.
+- Hand-curated playlist landed well — jerpint confirmed "really good."
+
+### Session 34 — Music skill integrated into digest pipeline (Mar 5)
+
+**Music curation now runs in the digest cron.** Split Phase 2 into two parallel Claude calls:
+- Article selection: Haiku (fast, picks indices — unchanged)
+- Music curation: Sonnet with 8 turns + tools (web search, research, concept-driven)
+
+**Pipeline:** `pickMusicConcept()` rotates through the unexplored queue in `music-taste.md` → Sonnet gets concept + full taste profile + recent artist exclusion list → researches the concept → returns tracks + writeup JSON → digest.mjs verifies artists on Spotify, creates playlist, embeds it with concept title + writeup.
+
+**First automated playlist landed hard.** "Tropic Thunder: South American Psych Underground" — Sonnet found Los Saicos, Boogarins, Os Mutantes deep cuts, bridged to jerpint's taste via Protomartyr/Interpol/Stereolab. jerpint: "never heard of this and super curious to deep dive." That's the thesis working.
+
+**Key changes to `container/cron/digest.mjs`:**
+- `loadTasteProfile()`, `getRecentPlaylistArtists()`, `pickMusicConcept()` — new functions
+- `spawnClaude()` now supports `maxTurns` param
+- Artist verification on Spotify search results (checks artist name matches)
+- Playlist named with concept: `nw · {date} — {concept}`
+- Music section in digest HTML: concept title + iframe + writeup
+- Model: `claude-sonnet-4-6` for music, `claude-haiku-4-5-20251001` for articles
+
+**Still needs:** Refactor/trim of the whole digest pipeline (jerpint flagged). Pre-written concept briefs vs autonomous Sonnet research (TBD). Testing `claude -p` from inside Claude Code sessions hits nesting issues — cron (via server.js) works fine.
+
+**Branch:** still `wolt-structure`.
 
 **Guide + llms.txt updated** to match new `wolt/` structure. Removed dead `tools/` references. Needs end-to-end test with someone actually following the guide.
 

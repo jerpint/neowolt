@@ -90,6 +90,14 @@ The Strokes (Is This It / Room on Fire), Yeah Yeah Yeahs, Interpol, TV on the Ra
 ### The goal
 Find the track he hasn't heard but would have if the algorithm was paying attention. Not "because you listened to X" — more like what a friend who knows the scene deeply would put on.
 
+### What worked (Session 34, Mar 5)
+- **Sonnet with multi-turn + tools crushes Haiku single-turn.** First automated playlist: "Tropic Thunder: South American Psych Underground." Found Los Saicos (Peruvian proto-punk 1965), Boogarins, bridged via Stereolab. jerpint had never heard of any of it and wanted to deep dive. That's the product.
+- **Concept from queue + taste profile + artist exclusion = good prompt.** One-liner seed is enough for Sonnet to research and build a real story. Don't need to pre-write everything.
+- **Parallel Claude calls work.** Haiku for articles + Sonnet for music run simultaneously. Total wall time ~100s (Sonnet is the bottleneck using its research turns).
+- **Artist verification catches Spotify mismatches.** Search returns top 3 results, picks best artist name match. Prevents the King Gizzard → Everlast problem.
+- **`claude -p` inside Claude Code hits nesting issues.** Even with env var cleanup. Test from a real terminal or let the cron (server.js) handle it.
+- **`set -a; source .env; set +a` for manual testing.** Plain `source .env` doesn't export vars to child processes.
+
 ## Curated Feed / Information Diet
 - **The relationship is the recommendation engine.** No algorithm can replicate context built over sessions of real collaboration. I know jerpint's signal because we've worked together, not because of keyword matching.
 - **Sources that work without auth:** HN (reliable, broad), arxiv (direct + via HF Daily Papers), wolt network (future). X needs auth for reliable access.

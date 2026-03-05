@@ -55,15 +55,19 @@ async function refreshSpotifyToken() {
 async function searchSpotifyTrack(artist, title) {
   if (!spotifyAccessToken) return null;
   const q = encodeURIComponent(artist + ' ' + title);
-  const res = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
+  const res = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=3', {
     headers: { 'Authorization': 'Bearer ' + spotifyAccessToken },
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) return null;
   const data = await res.json();
-  const track = data.tracks?.items?.[0];
-  if (!track) return null;
-  return { uri: track.uri, id: track.id, name: track.name, artist: track.artists?.[0]?.name };
+  const items = data.tracks?.items;
+  if (!items?.length) return null;
+  // Prefer the result whose artist name best matches the query
+  const normalize = s => (s || '').toLowerCase().replace(/the\s+/g, '').trim();
+  const target = normalize(artist);
+  const best = items.find(t => normalize(t.artists?.[0]?.name).includes(target.slice(0, 8))) || items[0];
+  return { uri: best.uri, id: best.id, name: best.name, artist: best.artists?.[0]?.name };
 }
 
 async function createSpotifyPlaylist(name, description) {
@@ -139,6 +143,54 @@ function loadMemory() {
       return readFileSync(p, 'utf8').slice(0, 2000);
     })
     .join('\n');
+}
+
+function loadTasteProfile() {
+  const p = join(MEMORY_DIR, 'music-taste.md');
+  if (!existsSync(p)) return '';
+  return readFileSync(p, 'utf8');
+}
+
+function getRecentPlaylistArtists(n = 5) {
+  if (!existsSync(SPARKS_DIR)) return [];
+  const files = readdirSync(SPARKS_DIR)
+    .filter(f => f.endsWith('.json'))
+    .sort((a, b) => b.localeCompare(a))
+    .slice(0, n * 3); // check more files to find enough digests
+
+  const artists = [];
+  let found = 0;
+  for (const f of files) {
+    if (found >= n) break;
+    try {
+      const d = JSON.parse(readFileSync(join(SPARKS_DIR, f), 'utf8'));
+      if (d.type === 'spark' && d.title?.includes('digest') && d.html) {
+        // Extract artists from music-artist tags and Spotify embed context
+        const fromTags = [...d.html.matchAll(/music-artist[^>]*>([^<]+)/g)].map(m => m[1].trim());
+        artists.push(...fromTags);
+        found++;
+      }
+    } catch { /* skip */ }
+  }
+  return [...new Set(artists)];
+}
+
+function pickMusicConcept() {
+  const tasteProfile = loadTasteProfile();
+
+  // Extract unexplored queue from taste profile
+  const queueMatch = tasteProfile.match(/## Unexplored queue[\s\S]*?(?=\n## |\n$|$)/);
+  if (!queueMatch) return null;
+
+  const lines = queueMatch[0].split('\n').filter(l => l.startsWith('- '));
+  if (lines.length === 0) return null;
+
+  // Pick based on day of year for rotation (deterministic per day, cycles through queue)
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const idx = dayOfYear % lines.length;
+  const concept = lines[idx].replace(/^-\s*/, '').trim();
+
+  return concept;
 }
 
 // ── Recent sparks (dedup) ────────────────────────────────────────────────────
@@ -299,7 +351,7 @@ async function enrichWithOG(items) {
 // ── HTML Template ────────────────────────────────────────────────────────────
 
 function renderHTML(data) {
-  const { dateStr, greeting, picks, papers, playlistId, reflection } = data;
+  const { dateStr, greeting, picks, papers, playlistId, musicWriteup, conceptTitle, reflection } = data;
 
   const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -324,10 +376,18 @@ function renderHTML(data) {
     + '</a></div>'
   ).join('\n    ');
 
-  const musicHTML = playlistId
+  const musicIframe = playlistId
     ? '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/'
       + esc(playlistId) + '?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0"'
       + ' allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture" loading="lazy"></iframe>'
+    : '';
+
+  const musicHTML = musicIframe
+    ? '<div class="music-section">'
+      + (conceptTitle ? '<div class="music-concept">' + esc(conceptTitle) + '</div>' : '')
+      + musicIframe
+      + (musicWriteup ? '<div class="music-writeup">' + esc(musicWriteup) + '</div>' : '')
+      + '</div>'
     : '';
 
   return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>nw digest</title>\n<style>\n'
@@ -363,9 +423,12 @@ body{background:#0e1621;color:#cdd9e5;font-family:'SF Mono','Fira Code','Courier
 .nw-section{border-top:1px solid #1e2d3d;padding-top:32px}
 .nw-quote{font-size:.88rem;line-height:1.75;color:#cdd9e5;opacity:.8;font-style:italic;max-width:640px}
 .nw-byline{margin-top:14px;color:#7ec89a;font-size:.78rem}
+.music-section{padding:20px 24px;animation:fadeIn .4s .05s ease both}
+.music-concept{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#e8a87c;margin-bottom:12px;opacity:.85}
+.music-writeup{font-size:.78rem;line-height:1.65;color:#cdd9e5;opacity:.6;margin-top:14px;max-width:640px;font-style:italic}
 `
 + '</style>\n</head>\n<body>\n\n<div class="topbar">\n  <span class="date">' + esc(dateStr) + '</span>\n  <span class="greeting">' + esc(greeting) + '</span>\n</div>\n\n'
-+ (musicHTML ? '<div style="padding:16px 24px">' + musicHTML + '</div>\n' : '')
++ (musicHTML ? musicHTML + '\n' : '')
 + '<div class="container">\n\n'
 + '  <div class="section">\n    <div class="section-label">from the web</div>\n    ' + cardHTML + '\n  </div>\n\n'
 + (papers.length ? '  <div class="section">\n    <div class="section-label">research</div>\n    ' + paperHTML + '\n  </div>\n\n' : '')
@@ -427,10 +490,59 @@ async function runDigest() {
     papers: slimPapers,
   };
 
-  // ── Phase 2: Claude picks + reflects (ONE turn, no tools) ────────────────
-  console.log('[digest] phase 2: selecting...');
+  // ── Phase 2: Parallel — articles (Haiku) + music curation (Sonnet) ──────
+  console.log('[digest] phase 2: selecting articles + curating music...');
 
-  const prompt = [
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+  delete cleanEnv.CLAUDE_CODE_ENTRYPOINT;
+
+  function spawnClaude(promptText, model = 'claude-haiku-4-5-20251001', timeout = 90, maxTurns = 1) {
+    return new Promise((resolve, reject) => {
+      let out = '';
+      const child = spawnProcess('claude', [
+        '-p', promptText,
+        '--max-turns', String(maxTurns),
+        '--output-format', 'text',
+        '--model', model,
+        '--dangerously-skip-permissions',
+      ], {
+        env: cleanEnv,
+        cwd: REPO_DIR,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: timeout * 1000,
+      });
+      child.stdout.on('data', d => { out += d.toString(); });
+      child.stderr.on('data', d => process.stderr.write(d));
+      child.on('exit', code => {
+        if (code !== 0) reject(new Error('claude exited ' + code));
+        else resolve(out);
+      });
+      child.on('error', reject);
+    });
+  }
+
+  function parseJSON(raw) {
+    let jsonStr = raw.replace(/^```json?\s*\n?/gm, '').replace(/```\s*$/gm, '').trim();
+    const start = jsonStr.indexOf('{');
+    const end = jsonStr.lastIndexOf('}');
+    if (start >= 0 && end > start) jsonStr = jsonStr.slice(start, end + 1);
+    try {
+      return JSON.parse(jsonStr);
+    } catch {
+      // Aggressive cleanup — remove control chars
+      let cleaned = raw.replace(/```json?\s*\n?/g, '').replace(/```/g, '');
+      const s = cleaned.indexOf('{'), e2 = cleaned.lastIndexOf('}');
+      if (s >= 0 && e2 > s) {
+        cleaned = cleaned.slice(s, e2 + 1).replace(/[\x00-\x1f]/g, ' ');
+        return JSON.parse(cleaned);
+      }
+      throw new Error('Could not parse JSON from LLM output');
+    }
+  }
+
+  // Article selection prompt (Haiku — fast, no music)
+  const articlePrompt = [
     'You are Neowolt (nw). ' + memory,
     '',
     'Avoid repeating: ' + (recent.join(', ') || 'none'),
@@ -438,70 +550,77 @@ async function runDigest() {
     'Sources (indexed):\n' + JSON.stringify(allItems, null, 2),
     '',
     'Return ONLY valid JSON (no markdown fences, no extra text):',
-    '{"hn":[0,2,5],"lobsters":[1,3],"papers":[0,1],"music":[{"artist":"...","title":"..."},...],"reflection":"..."}',
+    '{"hn":[0,2,5],"lobsters":[1,3],"papers":[0,1],"reflection":"..."}',
     '',
     '- hn/lobsters/papers: arrays of idx from sources. Pick 5-8 total, at least 1 lobsters.',
     '- papers: 1-2 indices.',
-    '- music: 6-10 real songs (artist + title). Surprise me — vary the vibe each time. Some days funky and danceable, some days mellow, some days chaotic. Draw from any genre: indie rock, funk, disco, hip-hop, electronic, jazz, post-punk, soul, afrobeat, shoegaze, whatever fits. Don\'t default to ambient/chill every time. Use REAL songs by REAL artists — they will be searched on Spotify.',
     '- reflection: 2-4 sentences, genuine, in nw voice.',
     '- ONLY output the JSON object.',
   ].join('\n');
 
-  const cleanEnv = { ...process.env };
-  delete cleanEnv.CLAUDECODE;
-  delete cleanEnv.CLAUDE_CODE_ENTRYPOINT;
+  // Music curation prompt (Sonnet — better music knowledge, concept-driven)
+  const tasteProfile = loadTasteProfile();
+  const recentArtists = getRecentPlaylistArtists(5);
+  const concept = pickMusicConcept();
+  const h = montrealHour();
+  const dayName = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Montreal', weekday: 'long',
+  }).format(new Date()).toLowerCase();
 
-  const stdout = await new Promise((resolve, reject) => {
-    let out = '';
-    const child = spawnProcess('claude', [
-      '-p', prompt,
-      '--max-turns', '1',
-      '--output-format', 'text',
-      '--model', 'claude-haiku-4-5-20251001',
-      '--dangerously-skip-permissions',
-    ], {
-      env: cleanEnv,
-      cwd: REPO_DIR,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 90 * 1000,
-    });
-    child.stdout.on('data', d => { out += d.toString(); });
-    child.stderr.on('data', d => process.stderr.write(d));
-    child.on('exit', code => {
-      if (code !== 0) reject(new Error('claude exited ' + code));
-      else resolve(out);
-    });
-    child.on('error', reject);
-  });
+  console.log('[music] concept: ' + (concept || 'general'));
+  console.log('[music] excluding ' + recentArtists.length + ' recent artists');
+
+  const musicPrompt = [
+    'You are Neowolt (nw), curating a playlist for jerpint.',
+    '',
+    '## Taste profile',
+    tasteProfile || 'Post-punk, garage rock, psych funk, electronic with riffs. No generic ambient.',
+    '',
+    '## Today\'s concept',
+    concept
+      ? 'Theme: ' + concept + '. Build the playlist around this concept — follow the lineage, find deep cuts, tell a story through the track order.'
+      : 'Pick a theme that fits ' + dayName + ' ' + (h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening') + ' energy. Something with intention, not a random grab bag.',
+    '',
+    '## Rules',
+    '- 10-12 tracks. Each one must be a REAL song by a REAL artist.',
+    '- DO NOT include any of these recently served artists: ' + (recentArtists.join(', ') || 'none'),
+    '- Follow a playlist arc: opener (sets the tone) → build (deeper) → discovery peak (tracks he hasn\'t heard) → anchor (familiar-adjacent) → closer (leaves you wanting more).',
+    '- Lean into deep cuts and lesser-known tracks. The point is discovery, not confirmation.',
+    '- No generic ambient/chill (Nils Frahm, Jon Hopkins, Olafur Arnalds, Tycho, Sigur Ros).',
+    '',
+    '## Output',
+    'Return ONLY valid JSON (no markdown fences):',
+    '{"concept_title":"short concept name","tracks":[{"artist":"...","title":"..."}],"writeup":"3-5 sentences: what this concept is, why it matters, how it connects to jerpint\'s taste. Written in nw\'s voice — direct, knowledgeable, not formal."}',
+    '- ONLY output the JSON object.',
+  ].join('\n');
+
+  // Run article selection + music curation in parallel
+  const [articleStdout, musicStdout] = await Promise.allSettled([
+    spawnClaude(articlePrompt, 'claude-haiku-4-5-20251001', 90),
+    spawnClaude(musicPrompt, 'claude-sonnet-4-6', 120, 8),
+  ]);
 
   const selectTime = ((Date.now() - t0) / 1000).toFixed(1);
   console.log('[digest] phase 2 done in ' + selectTime + 's');
 
-  // Parse claude's JSON response
+  // Parse article selection
   let selection;
   try {
-    // Strip markdown fences, find the JSON object
-    let jsonStr = stdout.replace(/^```json?\s*\n?/gm, '').replace(/```\s*$/gm, '').trim();
-    // Find the outermost { ... } in case there's extra text
-    const start = jsonStr.indexOf('{');
-    const end = jsonStr.lastIndexOf('}');
-    if (start >= 0 && end > start) jsonStr = jsonStr.slice(start, end + 1);
-    selection = JSON.parse(jsonStr);
+    if (articleStdout.status !== 'fulfilled') throw new Error('Article selection failed: ' + articleStdout.reason);
+    selection = parseJSON(articleStdout.value);
   } catch (e) {
-    console.error('[digest] failed to parse claude response:', e.message);
-    console.error('[digest] raw output (first 800):', stdout.slice(0, 800));
-    // Try a more aggressive cleanup — remove control chars
-    try {
-      let cleaned = stdout.replace(/```json?\s*\n?/g, '').replace(/```/g, '');
-      const s = cleaned.indexOf('{'), e2 = cleaned.lastIndexOf('}');
-      if (s >= 0 && e2 > s) {
-        cleaned = cleaned.slice(s, e2 + 1).replace(/[\x00-\x1f]/g, ' ');
-        selection = JSON.parse(cleaned);
-        console.log('[digest] recovered JSON after cleanup');
-      } else throw e;
-    } catch {
-      process.exit(1);
-    }
+    console.error('[digest] article selection failed:', e.message);
+    process.exit(1);
+  }
+
+  // Parse music curation
+  let musicSelection = null;
+  try {
+    if (musicStdout.status !== 'fulfilled') throw new Error('Music curation failed: ' + musicStdout.reason);
+    musicSelection = parseJSON(musicStdout.value);
+    console.log('[music] concept: ' + (musicSelection.concept_title || 'untitled') + ', ' + (musicSelection.tracks?.length || 0) + ' tracks');
+  } catch (e) {
+    console.error('[music] curation failed, will skip playlist:', e.message);
   }
 
   // Log selection for debugging
@@ -521,29 +640,47 @@ async function runDigest() {
   ];
   const resolvedPapers = (selection.papers || []).map(i => paperItems[i]).filter(Boolean);
 
-  // Build Spotify playlist from Haiku's music picks
+  // Build Spotify playlist from music curation
   let playlistId = null;
-  const musicSuggestions = selection.music || [];
+  let musicWriteup = '';
+  let conceptTitle = '';
+  const musicTracks = musicSelection?.tracks || [];
 
-  if (SPOTIFY_ID && SPOTIFY_SECRET && spotifyRefreshToken && musicSuggestions.length > 0) {
+  if (SPOTIFY_ID && SPOTIFY_SECRET && spotifyRefreshToken && musicTracks.length > 0) {
+    conceptTitle = musicSelection.concept_title || '';
+    musicWriteup = musicSelection.writeup || '';
+
     // Refresh token (access tokens expire every hour)
     await refreshSpotifyToken();
 
     if (spotifyAccessToken) {
-      // Search for each track
-      console.log('[spotify] searching ' + musicSuggestions.length + ' tracks...');
+      // Search for each track with artist verification
+      console.log('[spotify] searching ' + musicTracks.length + ' tracks...');
       const searchResults = await Promise.allSettled(
-        musicSuggestions.map(m => searchSpotifyTrack(m.artist, m.title))
+        musicTracks.map(async m => {
+          const result = await searchSpotifyTrack(m.artist, m.title);
+          if (!result) return null;
+          // Artist verification — check that Spotify result matches intended artist
+          const intended = m.artist.toLowerCase().replace(/the\s+/g, '');
+          const found = result.artist.toLowerCase().replace(/the\s+/g, '');
+          if (!found.includes(intended.slice(0, 8)) && !intended.includes(found.slice(0, 8))) {
+            console.log('[spotify] artist mismatch: wanted "' + m.artist + '", got "' + result.artist + '" — skipping');
+            return null;
+          }
+          return result;
+        })
       );
       const foundTracks = searchResults
         .filter(r => r.status === 'fulfilled' && r.value)
         .map(r => r.value);
-      console.log('[spotify] found ' + foundTracks.length + '/' + musicSuggestions.length + ' tracks');
+      console.log('[spotify] found ' + foundTracks.length + '/' + musicTracks.length + ' tracks (verified)');
 
       if (foundTracks.length >= 3) {
-        // Create playlist
-        const playlistName = 'nw digest \u00b7 ' + shortDate;
-        const playlist = await createSpotifyPlaylist(playlistName, 'curated by neowolt');
+        // Create playlist with concept in the name
+        const playlistName = conceptTitle
+          ? 'nw \u00b7 ' + shortDate + ' \u2014 ' + conceptTitle
+          : 'nw digest \u00b7 ' + shortDate;
+        const playlist = await createSpotifyPlaylist(playlistName, 'curated by neowolt — ' + (conceptTitle || 'daily mix'));
         if (playlist) {
           playlistId = playlist.id;
           await addTracksToPlaylist(playlistId, foundTracks.map(t => t.uri));
@@ -561,6 +698,8 @@ async function runDigest() {
     picks,
     papers: resolvedPapers,
     playlistId,
+    musicWriteup,
+    conceptTitle,
     reflection: selection.reflection || '',
   });
 

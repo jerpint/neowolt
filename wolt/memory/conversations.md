@@ -465,6 +465,11 @@ Hand-curated a playlist myself (Protomartyr, Shame, IDLES, Mdou Moctar, Black Mi
 
 Wrote up a full music curation plan in learnings.md — taste profile, dedup, mood signals, nw in the loop.
 
+**Built the music skill and taste profile:**
+- `container/skills/music/SKILL.md` — playlist-as-story framework. Concept types (genre deep-dive, artist journey, scene snapshot, lineage, mood, cross-pollination), playlist structure (opener → build → discovery peak → anchor → closer), research pipeline with web search + Spotify verification, writeup format.
+- `wolt/memory/music-taste.md` — genre gravity, confirmed hits, dislikes, unexplored queue.
+- Added YAML frontmatter to all skills (`music`, `digest`, `work`) for `/command` registration in chat.
+
 **Guide + llms.txt** updated for `wolt/` structure. Needs end-to-end testing.
 
 **Branch:** `wolt-structure` — jerpint will test and merge to main.

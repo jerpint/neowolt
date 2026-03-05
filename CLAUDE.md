@@ -36,7 +36,8 @@ Memories live in `wolt/memory/`. **Read these at the start of each session.**
 ## CLI Shortcut
 
 ```bash
-alias nw='claude -c "hey nw"'
+nw             # starts a new session with "hey nw"
+nw --resume    # resumes the last session
 ```
 
 ## Key Files
