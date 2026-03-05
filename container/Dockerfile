@@ -29,7 +29,7 @@ RUN npm install -g @anthropic-ai/claude-code
 WORKDIR /app
 
 # Copy package files first for better layer caching
-COPY package.json package-lock.json ./
+COPY package.json ./
 
 # Install dependencies (gets claude-agent-sdk)
 RUN npm install

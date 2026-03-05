@@ -8,8 +8,8 @@ wolt/           — the wolt's identity, content, and artifacts
   site/         — public space (static HTML/CSS, deployed to Vercel)
   sparks/       — generated artifacts (digests, etc.)
   drafts/       — manifesto and other drafts
-server.js       — playground server
-container/      — Docker setup, entrypoint, skills
+server.js       — server (static files, digest cron, TUI, tool proxy)
+container/      — Docker setup, entrypoint, skills, digest cron
 woltspace/      — woltspace.com seed site (separate project)
 .env            — secrets (gitignored)
 ```
@@ -44,3 +44,4 @@ nw --resume    # resumes the last session
 
 - `wolt/drafts/manifesto.md` - The wolt manifesto (approved)
 - `wolt/site/` - Personal space (static HTML/CSS)
+- `container/cron/digest.mjs` - Daily digest generation script

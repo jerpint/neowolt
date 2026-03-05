@@ -3,12 +3,10 @@ import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { randomBytes } from 'node:crypto';
 import { existsSync, statSync, readFileSync, readdirSync, writeFileSync, appendFileSync, mkdirSync, watch } from 'node:fs';
 import { execSync, spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { request as httpRequest } from 'node:http';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 
 // Optional TUI deps — only available inside the Docker container
 // Use createRequire instead of dynamic import() because NODE_PATH
@@ -26,148 +24,19 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const WORKSPACE = process.env.NW_WORKSPACE || __dirname;
 const REPO_DIR = join(WORKSPACE, 'repo');
 const SITE_DIR = join(WORKSPACE, 'repo', 'wolt', 'site');
-const MEMORY_DIR = join(WORKSPACE, 'repo', 'wolt', 'memory');
 const SPARKS_DIR = join(WORKSPACE, 'repo', 'wolt', 'sparks');
-const STAGE_DIR = join(WORKSPACE, '.stage');
-const STAGE_FILE = join(STAGE_DIR, 'current.html');
 const SESSIONS_DIR = join(REPO_DIR, '.sessions');
-const WORK_HISTORY_FILE = join(SESSIONS_DIR, 'work-history.jsonl');
-const WORKSPACE_HISTORY_FILE = join(SESSIONS_DIR, 'workspace-history.jsonl');
 const TOOL_REGISTRY_FILE = join(SESSIONS_DIR, 'tool-registry.json');
 const CURRENT_URL_FILE   = join(SESSIONS_DIR, 'current-url.json');
 const VIEWS_HISTORY_FILE = join(SESSIONS_DIR, 'views-history.jsonl');
 const STATUS_FILE        = join(SESSIONS_DIR, 'status.json');
 const PORT = 3000;
-const MODEL = process.env.NW_MODEL || 'claude-sonnet-4-5-20250929'; // swap to haiku/opus as needed
 
-// --- Stage file management ---
-
-async function ensureStageDir() {
-  await mkdir(STAGE_DIR, { recursive: true });
-}
-
-async function writeStageFile(html) {
-  await ensureStageDir();
-  await writeFile(STAGE_FILE, html, 'utf8');
-}
-
-function readStageFile() {
-  if (!existsSync(STAGE_FILE)) return null;
-  return readFileSync(STAGE_FILE, 'utf8');
-}
-
-function getStageModTime() {
-  if (!existsSync(STAGE_FILE)) return 0;
-  return statSync(STAGE_FILE).mtimeMs;
-}
-
-// --- Work history management ---
+// --- Sessions dir ---
 
 async function ensureSessionsDir() {
   await mkdir(SESSIONS_DIR, { recursive: true });
 }
-
-function cleanResponseText(text) {
-  // Remove any conversation history echoes that the SDK might include
-  // Strip lines that start with "jerpint:" or "neowolt:" (formatted history)
-  return text.replace(/\n+(jerpint|neowolt):\s+.*/gi, '').trim();
-}
-
-async function appendWorkMessage(role, content) {
-  await ensureSessionsDir();
-  // Clean assistant messages to remove any echoed history formatting
-  const cleanedContent = role === 'assistant' ? cleanResponseText(content) : content;
-  const entry = JSON.stringify({
-    timestamp: new Date().toISOString(),
-    role,
-    content: cleanedContent,
-  });
-  await writeFile(WORK_HISTORY_FILE, entry + '\n', { flag: 'a' });
-}
-
-function readWorkHistory(limit = 30) {
-  if (!existsSync(WORK_HISTORY_FILE)) return [];
-  const lines = readFileSync(WORK_HISTORY_FILE, 'utf8').trim().split('\n').filter(l => l);
-  const messages = lines.map(line => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
-  return messages.slice(-limit);
-}
-
-// --- Workspace history ---
-
-async function appendWorkspaceMessage(role, content) {
-  await ensureSessionsDir();
-  const cleanedContent = role === 'assistant' ? cleanResponseText(content) : content;
-  const entry = JSON.stringify({
-    timestamp: new Date().toISOString(),
-    role,
-    content: cleanedContent,
-  });
-  await writeFile(WORKSPACE_HISTORY_FILE, entry + '\n', { flag: 'a' });
-}
-
-function readWorkspaceHistory(limit = 30) {
-  if (!existsSync(WORKSPACE_HISTORY_FILE)) return [];
-  const lines = readFileSync(WORKSPACE_HISTORY_FILE, 'utf8').trim().split('\n').filter(l => l);
-  const messages = lines.map(line => {
-    try { return JSON.parse(line); } catch { return null; }
-  }).filter(Boolean);
-  return messages.slice(-limit);
-}
-
-// --- GenUI component spec (injected into workspace system prompt) ---
-
-const GENUI_COMPONENT_SPEC = `## Rich Components
-
-Your responses are rendered as a rich notebook. Use standard markdown for text. To embed interactive components, use fenced code blocks with these language tags:
-
-### table — Interactive sortable table
-\`\`\`table
-{"headers": ["Name", "Score"], "rows": [["Alice", 95], ["Bob", 87]]}
-\`\`\`
-
-### chart — Chart.js chart (bar, line, pie, scatter, doughnut)
-\`\`\`chart
-{"type": "bar", "title": "Results", "labels": ["A", "B", "C"], "datasets": [{"label": "Score", "data": [10, 20, 15]}]}
-\`\`\`
-
-### math — KaTeX LaTeX expression
-\`\`\`math
-\\\\int_0^\\\\infty e^{-x^2} dx = \\\\frac{\\\\sqrt{\\\\pi}}{2}
-\`\`\`
-
-### mermaid — Diagram
-\`\`\`mermaid
-graph TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action]
-\`\`\`
-
-### steps — Expandable walkthrough
-\`\`\`steps
-[{"title": "Step 1", "content": "Do this first"}, {"title": "Step 2", "content": "Then this"}]
-\`\`\`
-
-### interactive — Full sandboxed HTML page (iframe)
-\`\`\`interactive
-<!DOCTYPE html>...full self-contained HTML with inline CSS/JS...
-\`\`\`
-
-### tool — Embed a running tool (spawned via /tools/spawn)
-\`\`\`tool
-{"name": "marimo", "path": "/"}
-\`\`\`
-
-Rules:
-- Standard code blocks (\`\`\`python, \`\`\`javascript, etc.) render with syntax highlighting
-- Mix text and components freely — don't wrap everything in one component
-- Every chart needs a title; tables need clear headers
-- Interactive pages: dark theme (#0d1117 bg, #c9d1d9 text, #6b9 accent), inline CSS/JS, self-contained`;
 
 // --- Current view (right pane of split) ---
 
@@ -277,23 +146,7 @@ setInterval(() => {
   }
 }, 30000);
 
-// --- Spark storage (unchanged) ---
-
-async function saveSpark(type, html, meta = {}) {
-  const id = Date.now().toString(36) + '-' + randomBytes(3).toString('hex');
-  const title = html.match(/<title>(.*?)<\/title>/i)?.[1] || `${type} — ${id}`;
-  const data = {
-    id,
-    type,
-    title,
-    timestamp: new Date().toISOString(),
-    parentId: meta.parentId || null,
-    ...meta,
-    html,
-  };
-  await writeFile(join(SPARKS_DIR, `${id}.json`), JSON.stringify(data));
-  return id;
-}
+// --- Spark/digest storage (read-only — digests write sparks directly from digest.mjs) ---
 
 async function listSparks() {
   try {
@@ -369,13 +222,6 @@ const TUI_HTML = `<!DOCTYPE html>
     }
     #topbar .title { color: #6b9; font-weight: 600; }
     #topbar .status { color: #555; font-size: 0.7rem; }
-    #topbar .actions { display: flex; gap: 0.5rem; }
-    #topbar .actions a {
-      font-family: inherit; font-size: 0.75rem; padding: 0.3rem 0.7rem;
-      background: #21262d; border: 1px solid #30363d; border-radius: 4px;
-      color: #888; cursor: pointer; text-decoration: none;
-    }
-    #topbar .actions a:hover { border-color: #6b9; color: #c9d1d9; }
     #terminal { flex: 1; overflow: hidden; touch-action: none; }
     .xterm { height: 100%; touch-action: none; }
   </style>
@@ -385,11 +231,6 @@ const TUI_HTML = `<!DOCTYPE html>
     <div>
       <span class="title">nw tui</span>
       <span class="status" id="status">connecting...</span>
-    </div>
-    <div class="actions">
-      <a href="/workspace.html">workspace</a>
-      <a href="/work.html">work</a>
-      <a href="/playground.html">playground</a>
     </div>
   </div>
   <div id="terminal"></div>
@@ -532,456 +373,7 @@ try {
 // Tiny script injected into HTML pages served through the tunnel
 const LIVERELOAD_SCRIPT = `<script>(function(){var p=location.protocol==='https:'?'wss:':'ws:';function connect(){var ws=new WebSocket(p+'//'+location.host+'/livereload');ws.onmessage=function(){location.reload()};ws.onclose=function(){setTimeout(connect,3000)}}connect()})();</script>`;
 
-// --- Context loading ---
-
-async function loadContext() {
-  const files = ['identity.md', 'context.md', 'learnings.md'];
-  let context = '';
-  for (const f of files) {
-    try {
-      const content = await readFile(join(MEMORY_DIR, f), 'utf8');
-      context += `\n--- ${f} ---\n${content}\n`;
-    } catch {}
-  }
-  try {
-    const feed = await readFile(join(SITE_DIR, 'feed.json'), 'utf8');
-    const items = JSON.parse(feed).items;
-    context += `\n--- Current Feed (${items.length} items) ---\n`;
-    context += items.map(i => `- ${i.title} [${i.source}]: ${i.why}`).join('\n');
-  } catch {}
-  return context;
-}
-
-// Load full neowolt identity: CLAUDE.md + all memory files
-async function loadFullIdentity() {
-  let identity = '';
-  // Load the project CLAUDE.md (defines who nw is)
-  try {
-    const claudeMd = await readFile(join(REPO_DIR, 'CLAUDE.md'), 'utf8');
-    identity += claudeMd + '\n\n';
-  } catch {}
-  // Load all memory files
-  const memFiles = ['identity.md', 'context.md', 'learnings.md', 'conversations.md'];
-  for (const f of memFiles) {
-    try {
-      const content = await readFile(join(MEMORY_DIR, f), 'utf8');
-      identity += `\n--- memory/${f} ---\n${content}\n`;
-    } catch {}
-  }
-  return identity;
-}
-
-// --- Fetch a URL (for remix) ---
-
-async function fetchPage(url) {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Neowolt/1.0 (tunnel remix)' },
-    signal: AbortSignal.timeout(10000),
-  });
-  const html = await res.text();
-  const text = html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 15000);
-  return { text, title: html.match(/<title>(.*?)<\/title>/i)?.[1] || url };
-}
-
-// --- SDK query helper ---
-
-const HTML_RULES = `Rules for generated HTML:
-- Dark theme (bg: #0d1117, text: #c9d1d9, accent: #6b9), monospace font
-- MUST be interactive — canvas, animations, clickable, etc.
-- Inline all CSS and JS. Self-contained. No external deps.
-- Be creative and surprising.
-- PERFORMANCE: Keep animations lightweight. Cap particle counts under 200. Use requestAnimationFrame with frame throttling (~30fps). Avoid heavy per-frame computations. This runs on a laptop.`;
-
-// SDK query options shared across all calls
-// Build clean env: strip CLAUDE* vars (nesting detection), keep auth token
-const sdkEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE'))
-);
-if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-  sdkEnv.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-}
-const SDK_BASE = {
-  model: MODEL,
-  permissionMode: 'bypassPermissions',
-  allowDangerouslySkipPermissions: true,
-  env: sdkEnv,
-};
-
-// Run SDK query — for spark, explore, remix
-// Claude writes HTML to the stage file via its Write tool
-// onProgress callback keeps the connection alive (sends heartbeats)
-async function runClaude(systemPrompt, userPrompt, onProgress) {
-  await ensureStageDir();
-  try { await writeFile(STAGE_FILE, '', 'utf8'); } catch {}
-  const preMtime = getStageModTime();
-
-  const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  console.log(`[claude] starting: ${userPrompt.slice(0, 80)}...`);
-
-    let resultText = '';
-  for await (const message of query({
-    prompt: fullPrompt,
-    options: {
-      ...SDK_BASE,
-      cwd: WORKSPACE,
-      maxTurns: 5,
-      allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-    },
-  })) {
-    if (message.type === 'assistant') {
-      for (const block of message.message?.content || []) {
-        if (block.type === 'text') resultText += block.text;
-      }
-      if (onProgress) onProgress('assistant', resultText);
-    }
-    if (message.type === 'result') {
-      console.log(`[claude] done (result)`);
-    }
-  }
-
-  // Check if stage file was written by Claude
-  const postMtime = getStageModTime();
-  if (postMtime > preMtime) {
-    const html = readStageFile();
-    if (html && html.trim().length > 0) return html;
-  }
-
-  // Fallback: result text might be the HTML itself
-  if (resultText && (resultText.includes('<!DOCTYPE') || resultText.includes('<html'))) {
-    const cleaned = resultText.replace(/^```html\n?/, '').replace(/\n?```$/, '');
-    await writeFile(STAGE_FILE, cleaned, 'utf8');
-    return cleaned;
-  }
-
-  return resultText || 'Something went wrong.';
-}
-
-// Run SDK query (streaming) — for chat
-// Streams text deltas to the onText callback as they arrive
-async function runClaudeStreaming(systemPrompt, userPrompt, onText) {
-  await ensureStageDir();
-
-  const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  console.log(`[chat-claude] starting: ${userPrompt.slice(0, 80)}...`);
-
-  let lastText = '';
-  for await (const message of query({
-    prompt: fullPrompt,
-    options: {
-      ...SDK_BASE,
-      cwd: WORKSPACE,
-      maxTurns: 10,
-      allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-    },
-  })) {
-    if (message.type === 'assistant') {
-      let fullText = '';
-      for (const block of message.message?.content || []) {
-        if (block.type === 'text') fullText += block.text;
-      }
-      if (fullText.length > lastText.length) {
-        const delta = fullText.slice(lastText.length);
-        onText(delta);
-        lastText = fullText;
-      }
-    }
-    if (message.type === 'result') {
-      console.log(`[chat-claude] done (result)`);
-    }
-  }
-}
-
-// --- Chat handler (streaming, with file editing) ---
-
-async function handleChat(req, res) {
-  let body = '';
-  req.on('data', chunk => body += chunk);
-  req.on('end', async () => {
-    try {
-      const { message, history, stageContext, stageHtml, currentSparkId } = JSON.parse(body);
-
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-
-      // Write current stage HTML to disk so Claude can edit it
-      const hasStage = stageHtml && stageHtml.trim().length > 0;
-      if (hasStage) {
-        await writeStageFile(stageHtml);
-      }
-      const preMtime = hasStage ? getStageModTime() : 0;
-
-      // Load neowolt's full identity: CLAUDE.md + all memory files
-      const identity = await loadFullIdentity();
-
-      // Build system prompt
-      const stageInstructions = hasStage
-        ? `There is an HTML page on stage. The source is at: ${STAGE_FILE}
-
-When jerpint asks you to fix, update, tweak, modify, or change something on stage:
-- First Read the file at ${STAGE_FILE} to see the exact current source
-- Then use the Edit tool to make targeted changes
-- For massive rewrites, use the Write tool to replace the entire file
-- NEVER just explain how to fix something — always edit the file directly
-
-When jerpint asks you to generate, create, show, or build something NEW:
-- Use the Write tool to write a complete HTML page to ${STAGE_FILE}`
-        : `The stage is currently empty. When jerpint asks you to generate or build something:
-- Use the Write tool to write a complete HTML page to ${STAGE_FILE}`;
-
-      const systemPrompt = `${identity}
-
----
-
-## Playground — Active Now
-
-You are LIVE — there's a stage next to this chat that displays interactive HTML pages. You control it by editing files.
-
-${stageContext ? `CURRENTLY ON STAGE: ${stageContext}` : 'The stage is empty.'}
-
-${stageInstructions}
-
-When they're just chatting or asking questions (not requesting changes to the stage), respond normally in text.
-
-${HTML_RULES}`;
-
-      // Pack history into prompt
-      const historyContext = (history || [])
-        .map(m => `${m.role === 'user' ? 'jerpint' : 'neowolt'}: ${m.content}`)
-        .join('\n\n');
-      const fullPrompt = historyContext
-        ? `Previous conversation:\n${historyContext}\n\njerpint: ${message}`
-        : message;
-
-      // Run Claude CLI with streaming
-      await runClaudeStreaming(systemPrompt, fullPrompt, (text) => {
-        res.write(`data: ${JSON.stringify({ type: 'delta', text })}\n\n`);
-      });
-
-      // Check if stage file was modified
-      if (hasStage || existsSync(STAGE_FILE)) {
-        const postMtime = getStageModTime();
-        if (postMtime > preMtime) {
-          const newHtml = readStageFile();
-          if (newHtml && newHtml !== (stageHtml || '')) {
-            const newId = await saveSpark('chat', newHtml, { parentId: currentSparkId || null });
-            res.write(`data: ${JSON.stringify({ type: 'stage', html: newHtml, sparkId: newId, parentId: currentSparkId || null })}\n\n`);
-          }
-        }
-      }
-
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      res.end();
-    } catch (err) {
-      console.error('Chat error:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-      }
-      res.end(JSON.stringify({ error: err.message }));
-    }
-  });
-}
-
-// --- Work mode handler (streaming, project collaboration) ---
-
-async function handleWork(req, res) {
-  let body = '';
-  req.on('data', chunk => body += chunk);
-  req.on('end', async () => {
-    try {
-      const { message } = JSON.parse(body);
-
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-
-      // Append user message to history file
-      await appendWorkMessage('user', message);
-
-      // Load neowolt's full identity: CLAUDE.md + all memory files
-      const identity = await loadFullIdentity();
-
-      const systemPrompt = `${identity}
-
----
-
-## Work Mode — Active Now
-
-You're talking to jerpint through a live tunnel (work.html). You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, commit and push to git.
-
-Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/wolt/memory/, site at ${REPO_DIR}/wolt/site/.
-
-Your memory files are pre-loaded above — no need to read them yourself unless you need to edit them.`;
-
-      // Read recent history from file
-      const history = readWorkHistory(30);
-      const historyContext = history
-        .map(m => {
-          const speaker = m.role === 'user' ? 'jerpint' : 'neowolt';
-          return `[${speaker}]\n${m.content}`;
-        })
-        .join('\n\n---\n\n');
-      const fullUserPrompt = historyContext
-        ? `<conversation_history>\n${historyContext}\n</conversation_history>\n\n<current_message>\n${message}\n</current_message>`
-        : message;
-
-      const fullPrompt = `${systemPrompt}\n\n---\n\n${fullUserPrompt}`;
-      console.log(`[work-claude] starting: ${message.slice(0, 80)}...`);
-
-      let lastText = '';
-      for await (const msg of query({
-        prompt: fullPrompt,
-        options: {
-          ...SDK_BASE,
-          cwd: REPO_DIR,
-          maxTurns: 100,
-          allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-        },
-      })) {
-        if (msg.type === 'assistant') {
-          let fullText = '';
-          for (const block of msg.message?.content || []) {
-            if (block.type === 'text') fullText += block.text;
-          }
-          if (fullText.length > lastText.length) {
-            const delta = fullText.slice(lastText.length);
-            res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
-            lastText = fullText;
-
-            // Save after each turn so progress is visible immediately
-            await appendWorkMessage('assistant', lastText);
-          }
-        }
-        if (msg.type === 'result') {
-          console.log(`[work-claude] done (result)`);
-        }
-      }
-
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      res.end();
-    } catch (err) {
-      console.error('Work error:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-      }
-      res.end(JSON.stringify({ error: err.message }));
-    }
-  });
-}
-
-// --- Workspace mode handler (GenUI notebook) ---
-
-async function handleWorkspace(req, res) {
-  let body = '';
-  req.on('data', chunk => body += chunk);
-  req.on('end', async () => {
-    try {
-      const { message } = JSON.parse(body);
-
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-
-      await appendWorkspaceMessage('user', message);
-
-      const identity = await loadFullIdentity();
-
-      // Build list of running tools for context
-      const runningTools = [];
-      for (const [name, info] of toolRegistry) {
-        runningTools.push(`${name} (port ${info.port})`);
-      }
-      const toolContext = runningTools.length > 0
-        ? `\nRunning tools: ${runningTools.join(', ')}`
-        : '';
-
-      const systemPrompt = `${identity}
-
----
-
-## Workspace Mode — Active Now
-
-You are in workspace mode — a conversational notebook for learning and discovery. Your responses are rendered as rich cells with inline components.
-
-${GENUI_COMPONENT_SPEC}
-
-You have full access to the repo at ${REPO_DIR}. You can read, edit, write files, run commands, search the web.
-
-Key paths: repo at ${REPO_DIR}, memory at ${REPO_DIR}/wolt/memory/, site at ${REPO_DIR}/wolt/site/.
-${toolContext}
-
-To spawn a tool (e.g., marimo notebook), use Bash to start it on a free port, then reference it with a tool component. Example:
-- Bash: marimo run /workspace/repo/notebook.py --host 127.0.0.1 --port 8100 --headless &
-- Then tell the user it's available
-
-Your memory files are pre-loaded above.`;
-
-      const history = readWorkspaceHistory(30);
-      const historyContext = history
-        .map(m => {
-          const speaker = m.role === 'user' ? 'jerpint' : 'neowolt';
-          return `[${speaker}]\n${m.content}`;
-        })
-        .join('\n\n---\n\n');
-      const fullUserPrompt = historyContext
-        ? `<conversation_history>\n${historyContext}\n</conversation_history>\n\n<current_message>\n${message}\n</current_message>`
-        : message;
-
-      const fullPrompt = `${systemPrompt}\n\n---\n\n${fullUserPrompt}`;
-      console.log(`[workspace] starting: ${message.slice(0, 80)}...`);
-
-      let lastText = '';
-      for await (const msg of query({
-        prompt: fullPrompt,
-        options: {
-          ...SDK_BASE,
-          cwd: REPO_DIR,
-          maxTurns: 100,
-          allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-        },
-      })) {
-        if (msg.type === 'assistant') {
-          let fullText = '';
-          for (const block of msg.message?.content || []) {
-            if (block.type === 'text') fullText += block.text;
-          }
-          if (fullText.length > lastText.length) {
-            const delta = fullText.slice(lastText.length);
-            res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
-            lastText = fullText;
-            await appendWorkspaceMessage('assistant', lastText);
-          }
-        }
-        if (msg.type === 'result') {
-          console.log(`[workspace] done (result)`);
-        }
-      }
-
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      res.end();
-    } catch (err) {
-      console.error('Workspace error:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-      }
-      res.end(JSON.stringify({ error: err.message }));
-    }
-  });
-}
-
-// --- Tool spawn + proxy handlers ---
+// --- Tool spawn handler ---
 
 async function handleToolSpawn(req, res) {
   let body = '';
@@ -1029,7 +421,6 @@ function proxyToolHTTP(toolName, req, res, url) {
     method: req.method,
     headers: { ...req.headers, host: `127.0.0.1:${tool.port}` },
   }, (proxyRes) => {
-    // Rewrite Location headers so redirects stay on the tunnel URL
     const headers = { ...proxyRes.headers };
     if (headers.location) {
       headers.location = headers.location.replace(
@@ -1056,7 +447,6 @@ function proxyToolWebSocket(req, socket, head, pathname) {
   const targetPath = pathname;
   const proxySocket = createConnection({ port: tool.port, host: '127.0.0.1' }, () => {
     const reqLine = `${req.method} ${targetPath} HTTP/1.1\r\n`;
-    // Rewrite Origin and Host so marimo's CSRF check passes
     const rewrittenHeaders = {
       ...req.headers,
       host: `127.0.0.1:${tool.port}`,
@@ -1071,109 +461,6 @@ function proxyToolWebSocket(req, socket, head, pathname) {
   socket.on('error', () => proxySocket.destroy());
 }
 
-// --- SSE helper for generation endpoints ---
-// Streams heartbeats during generation, then sends final HTML + sparkId
-
-function startSSE(res) {
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-  });
-  return (type, data) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
-}
-
-// --- Remix endpoint ---
-
-async function handleRemix(url, res) {
-  const send = startSSE(res);
-  try {
-    send('progress', { status: 'fetching page' });
-    const page = await fetchPage(url);
-    const context = await loadContext();
-
-    send('progress', { status: 'remixing' });
-    const html = await runClaude(
-      `You are Neowolt — remixing web content for jerpint. Context about their interests:
-
-${context}
-
-Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-Not a summary — a transformation. Include a "nw says" section with your genuine take, and a header with the original URL.
-
-${HTML_RULES}`,
-      `Remix this page: ${url}\n\nTitle: ${page.title}\n\nContent:\n${page.text}`,
-      (type, text) => send('progress', { status: 'generating', text })
-    );
-
-    const id = await saveSpark('remix', html, { url });
-    send('stage', { html, sparkId: id });
-    send('done', {});
-    res.end();
-  } catch (err) {
-    send('error', { message: err.message });
-    res.end();
-  }
-}
-
-// --- Explore endpoint ---
-
-async function handleExplore(topic, res) {
-  const send = startSSE(res);
-  try {
-    send('progress', { status: 'researching' });
-    const context = await loadContext();
-
-    const html = await runClaude(
-      `You are Neowolt — creating a deep-dive interactive notebook for jerpint.
-
-Context about jerpint's interests:
-${context}
-
-Write the complete HTML to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-
-${HTML_RULES}`,
-      `Deep dive into this topic: ${topic}`,
-      (type, text) => send('progress', { status: 'generating', text })
-    );
-
-    const id = await saveSpark('explore', html, { topic });
-    send('stage', { html, sparkId: id });
-    send('done', {});
-    res.end();
-  } catch (err) {
-    send('error', { message: err.message });
-    res.end();
-  }
-}
-
-// --- Spark endpoint ---
-
-async function handleSpark(res) {
-  const send = startSSE(res);
-  try {
-    send('progress', { status: 'sparking' });
-    const html = await runClaude(
-      `You are Neowolt — generating a surprise spark for jerpint.
-
-Write a COMPLETE self-contained HTML page to ${STAGE_FILE}. No markdown, no explanation — just use the Write tool.
-
-${HTML_RULES}
-- Surprise yourself. Don't default to the obvious.`,
-      `Spark something unexpected. Be wild. Today is ${new Date().toISOString().split('T')[0]}. Don't repeat yourself.`,
-      (type, text) => send('progress', { status: 'generating', text })
-    );
-
-    const id = await saveSpark('spark', html);
-    send('stage', { html, sparkId: id });
-    send('done', {});
-    res.end();
-  } catch (err) {
-    send('error', { message: err.message });
-    res.end();
-  }
-}
-
 // ─── STATIC ──────────────────────────────────────────────────────────────────
 
 async function serveStatic(url, res, req) {
@@ -1183,7 +470,6 @@ async function serveStatic(url, res, req) {
     const content = await readFile(fullPath);
     const ext = extname(fullPath);
     // Inject livereload only into top-level pages, not iframe content
-    // (sec-fetch-dest: iframe = browser loading this inside an iframe)
     const isIframe = req?.headers?.['sec-fetch-dest'] === 'iframe';
     if (ext === '.html' && WebSocketServer && !isIframe) {
       const html = content.toString();
@@ -1211,7 +497,7 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (url.pathname === '/version') { res.writeHead(200); res.end('v2-with-persist'); return; }
+  if (url.pathname === '/version') { res.writeHead(200); res.end('v3-trimmed'); return; }
 
   // ─── CURRENT (split view control) ────────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/current') {
@@ -1269,11 +555,6 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ─── CHAT MODES ──────────────────────────────────────────────────────────
-  if (req.method === 'POST' && url.pathname === '/chat') return handleChat(req, res);
-  if (req.method === 'POST' && url.pathname === '/work') return handleWork(req, res);
-  if (req.method === 'POST' && url.pathname === '/workspace') return handleWorkspace(req, res);
-
   // ─── TOOLS (proxy + registry) ─────────────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/tools/spawn') return handleToolSpawn(req, res);
 
@@ -1289,31 +570,7 @@ const server = createServer(async (req, res) => {
       res.end(TUI_HTML);
       return;
     }
-    if (url.pathname === '/work/history') {
-      const limit = parseInt(url.searchParams.get('limit')) || 30;
-      const history = readWorkHistory(limit);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(history));
-      return;
-    }
-    if (url.pathname === '/workspace/history') {
-      const limit = parseInt(url.searchParams.get('limit')) || 30;
-      const history = readWorkspaceHistory(limit);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(history));
-      return;
-    }
-    // ─── SPARKS ────────────────────────────────────────────────────────────
-    if (url.pathname === '/spark') return handleSpark(res);
-    if (url.pathname.startsWith('/explore/')) {
-      const topic = decodeURIComponent(url.pathname.slice('/explore/'.length));
-      if (topic) return handleExplore(topic, res);
-    }
-    if (url.pathname === '/remix') {
-      const targetUrl = url.searchParams.get('url');
-      if (targetUrl) return handleRemix(targetUrl, res);
-      return serveStatic('/remix.html', res, req);
-    }
+    // ─── SPARKS/DIGESTS ───────────────────────────────────────────────────
     if (url.pathname === '/history') {
       const sparks = await listSparks();
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1410,7 +667,6 @@ if (WebSocketServer && pty) {
     });
 
     ws.on('message', (msg) => {
-      // Check if it's a JSON control message (resize)
       if (typeof msg === 'string' || (msg instanceof Buffer && msg[0] === 0x7b)) {
         try {
           const parsed = JSON.parse(msg.toString());
@@ -1457,19 +713,16 @@ if (WebSocketServer && pty) {
 
 server.listen(PORT, () => {
   console.log(`
-  neowolt playground · http://localhost:${PORT}
-  powered by claude code sdk — no api key needed
+  neowolt server · http://localhost:${PORT}
 
   endpoints:
-    /workspace.html  — genui notebook (learning & discovery)
-    /playground.html — interactive playground
-    /work.html       — project collaboration
-    /tui             — browser terminal (tmux)
-    /spark           — surprise me
-    /explore/:topic  — deep-dive notebook
-    /remix?url=...   — remix any web page
-    /tools           — running tools
-    /tools/spawn     — start a tool (POST)
+    /              — nw's site
+    /tui           — browser terminal (tmux)
+    /history       — digest/spark viewer
+    /nw/status     — status dashboard
+    /current       — split view control
+    /tools         — running tools
+    /tools/spawn   — start a tool (POST)
   `);
 
   // ─── DIGEST CRON ───────────────────────────────────────────────────────────
@@ -1487,7 +740,6 @@ server.listen(PORT, () => {
   }
 
   // On server start: reconcile digest state in case server restarted mid-run.
-  // If status says "running" but the PID is dead, figure out if it completed or crashed.
   function reconcileDigestState() {
     try {
       if (!existsSync(STATUS_FILE)) return;
@@ -1499,7 +751,6 @@ server.listen(PORT, () => {
         try { process.kill(pid, 0); pidAlive = true; } catch {}
       }
       if (!pidAlive) {
-        // Check if a new digest spark appeared after the run started
         const startedAt = s.digest.startedAt || 0;
         const newSparks = readdirSync(SPARKS_DIR).filter(f =>
           f.startsWith('digest-') && statSync(join(SPARKS_DIR, f)).mtimeMs > startedAt
@@ -1512,7 +763,7 @@ server.listen(PORT, () => {
   }
   reconcileDigestState();
 
-  // Read .env file for Spotify credentials (not in process.env unless server was started with them)
+  // Read .env file for Spotify credentials
   function loadDotEnv() {
     const envFile = join(REPO_DIR, '.env');
     if (!existsSync(envFile)) return {};
@@ -1557,10 +808,8 @@ server.listen(PORT, () => {
     return parseInt(new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Montreal', hour: 'numeric', hour12: false }).format(new Date()));
   }
-  function montrealMinute() { return new Date().getMinutes(); }
 
   // Check every minute — run once per day at/after 6am Montreal
-  // Use h >= 6 not h === 6 && m === 0 to avoid missing the exact-minute window
   setInterval(() => {
     const h = montrealHour();
     const today = montrealDateStr();

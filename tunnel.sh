@@ -65,7 +65,6 @@ echo "starting container..."
 docker run -d \
   --name "$CONTAINER_NAME" \
   -v "$(pwd):/workspace/repo:rw" \
-  -v "$(pwd)/.stage:/workspace/.stage:rw" \
   -v "$(pwd)/container/skills:/skills:ro" \
   -v "$(pwd)/.claude-state:/home/node/.claude:rw" \
   -v "$HOME/.ssh/neowolt-deploy:/home/node/.ssh/neowolt-deploy:ro" \
