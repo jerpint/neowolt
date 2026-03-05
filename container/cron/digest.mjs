@@ -310,8 +310,8 @@ async function fetchHFPapers() {
     const papers = await Promise.allSettled(
       paperIds.slice(0, 10).map(async id => {
         const txt = await fetchText('https://arxiv-txt.org/abs/' + id);
-        const titleMatch = txt.match(/Title:\s*(.+?)(?:\n|$)/i) || txt.match(/^(.+?)(?:\n|$)/);
-        const abstractMatch = txt.match(/Abstract[:\s]*\n?([\s\S]+?)(?:\n\n|\n[A-Z])/i);
+        const titleMatch = txt.match(/^#\s*Title\s*\n(.+?)(?:\n|$)/im) || txt.match(/Title:\s*(.+?)(?:\n|$)/i) || txt.match(/^(.+?)(?:\n|$)/);
+        const abstractMatch = txt.match(/^#\s*Abstract\s*\n([\s\S]+?)(?:\n\n|\n#)/im) || txt.match(/Abstract[:\s]*\n?([\s\S]+?)(?:\n\n|\n[A-Z])/i);
         return {
           source: 'hf_paper',
           title: titleMatch ? titleMatch[1].trim() : 'Paper ' + id,
