@@ -18,13 +18,13 @@ Invoked as `/digest` in chat, or run on a cron schedule.
    - Pick 1 **top pick** (the single most relevant story — explain *why* it matters for what jerpint is building)
    - Pick 4 **grid items** from HN (with OG images — fetch og:image from each URL)
    - Pick 3 **papers** from HF (with real HF paper links and abstract snippets)
-   - Add 4 **music tracks** — always include a mix of QOTSA and Khruangbin unless jerpint requests otherwise
+   - **Music:** Delegate to the `/music` skill for playlist curation. See `container/skills/music/SKILL.md`.
 
 3. **Generate the digest HTML** using this template structure:
    - Hero card: top pick with OG image (aspect-ratio 2/1, object-position center top)
    - 2×2 grid: 4 HN items with OG images
    - Papers carousel: horizontal, arrow navigation, shows title + abstract, links to real HF paper URL
-   - Music player: thumbnail carousel (72×40px thumbnails from `https://img.youtube.com/vi/{id}/mqdefault.jpg`), YouTube embed on play
+   - Music: Spotify playlist embed (iframe from `/music` skill output)
 
 4. **Save and serve:**
    ```bash
@@ -52,11 +52,10 @@ jerpint's interests (in order of priority):
 - Terminal-first tools, minimal dev tools
 - ML research that changes what agents can do
 - Interesting hacks / hardware projects
-- Music: Queens of the Stone Age, Khruangbin — rotate tracks, don't repeat the same ones
+- Music: see `/music` skill — playlists are themed stories, not random track lists
 
 ## Notes
 
 - OG images: fetch `og:image` meta tag from each article URL
-- YouTube thumbnail: `https://img.youtube.com/vi/{VIDEO_ID}/mqdefault.jpg`
-- YouTube IDs: always fetch fresh from YouTube search — don't use hardcoded IDs, they go stale
-- Max 1 QOTSA or Khruangbin track per digest, vary everything else widely
+- Music curation is handled by the music skill (`container/skills/music/SKILL.md`)
+- Playlist gets embedded as a Spotify iframe in the digest
