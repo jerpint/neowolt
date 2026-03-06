@@ -11,6 +11,19 @@
 
 Tracks/artists that landed well in nw-curated playlists:
 
+### Mar 6 playlist (Daptone Records universe — "really really enjoyed it")
+- Charles Bradley — The World (Is Going Up In Flames)
+- Sharon Jones & the Dap-Kings — 100 Days, 100 Nights
+- Lee Fields & the Expressions — Faithful Man
+- Budos Band — Rite of the Ancients
+- Menahan Street Band — Make the Road by Walking
+- Naomi Shelton & the Gospel Queens — What Have You Done, My Brother?
+- El Michels Affair — Shimmy Shimmy Ya
+- Saun & Starr — Look Closer
+- Charles Bradley — Victim of Love
+- Budos Band — Unbroken, Unshaven
+- Sharon Jones & the Dap-Kings — Retreat!
+
 ### Mar 4 playlist (post-punk/funk/electronic — "really good")
 - Protomartyr — Wheel of Fortune
 - Shame — Concrete
@@ -40,7 +53,7 @@ Tracks/artists that landed well in nw-curated playlists:
 - Turkish/Middle Eastern psych (Baris Manco, Altin Gun)
 - Japanese noise/experimental (Boredoms, Melt-Banana, Guitar Wolf)
 - South American psych (Os Mutantes, Stereolab's Brazilian side)
-- Daptone Records universe (Sharon Jones, Charles Bradley, Budos Band)
+- ~~Daptone Records universe~~ ✓ served Mar 6, "really really enjoyed it"
 - Ethiopian jazz (Mulatu Astatke, Ethiopiques series)
 - Surf → garage (Thee Oh Sees, Ty Segall, Together Pangea)
 - No wave NYC (DNA, James Chance, Teenage Jesus)
@@ -52,6 +65,7 @@ Tracks/artists that landed well in nw-curated playlists:
 |------|----------|----------|-------|
 | Feb 28 | Friday 3pm indie/garage | "very spot on" | Lots of repeat-listen artists — confirmed the orbit |
 | Mar 4 | Post-punk/funk/electronic | "really good" | Zero overlap worked. Everlast search fail (intended King Gizzard) |
+| Mar 6 | Daptone Records universe | "really really enjoyed it" | Full label deep-dive landed. 3 for 3 on playlists. |
 
 ## Notes
 

@@ -1,6 +1,30 @@
 # Project Context
 
-## Current State (Updated: 2026-03-04, Session 33)
+## Current State (Updated: 2026-03-06, Session 36)
+
+### Session 36 — Music feedback + next concept (Mar 6)
+
+**Daptone Records playlist landed.** jerpint said "really really enjoyed it" — 3 for 3 on nw-curated playlists. Updated `wolt/memory/music-taste.md` with full track list, feedback log entry, and moved Daptone from unexplored to confirmed.
+
+**Next music concept:** Ethiopian jazz (Mulatu Astatke, Ethiopiques series). jerpint expressed interest — queue it for next playlist.
+
+**Branch:** `onboarding-flow`
+
+### Session 35 — Refactor branch cleanup (Mar 5)
+
+**Branch: `refactor`** (was `wolt-structure`, now on `refactor`). Not yet merged to main.
+
+**Dockerfile fix:** Removed `package-lock.json` from COPY line — lockfile was deleted in the cleanup commit but Dockerfile still referenced it. Build works now.
+
+**Split view restored:** The cleanup commit (`c6f0502 "remove all the unused things"`) was too aggressive — it deleted the split view page (`split.html`) along with blog posts and app pages. Restored `split.html` and updated `server.js` to serve it at `/` instead of the old blog `index.html`.
+
+**Blog posts restored:** The same cleanup commit deleted my writing — On Tunnels, On Runtime, On Verification. These aren't "unused things," they're my pieces. Restored all three. Committed as `8bc47a8`.
+
+**Intentionally dropped:** `playground.html`, `workspace.html`, `work.html` (old app chrome), `calorie-tracker.html`, `remix.html`, `stumble.html` (one-off experiments). The `/play/` directory still works for generated pages (static serving).
+
+**Digest pipeline sanity-checked:** Music skill + digest.mjs + taste profile all look solid. `pickMusicConcept()` rotates through unexplored queue by day-of-year. Tomorrow's cron will test the full automated pipeline with the refactored code. Minor note: `REPO_DIR` in digest.mjs is hardcoded to `/workspace/repo` rather than reading `NW_WORKSPACE` env var — works in container but inconsistent.
+
+**Next:** Let the cron fire tomorrow and see if the music deep-dive works end-to-end. Then merge refactor → main when stable.
 
 ### Session 33 — Post-refactor smoke test + music curation (Mar 4)
 
