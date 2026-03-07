@@ -3,7 +3,7 @@
 ## Genre gravity (core orbit)
 
 - Post-punk revival / garage rock: The Strokes (Is This It, Room on Fire), Arctic Monkeys (early), Interpol, Yeah Yeah Yeahs
-- Desert / stoner rock: QOTSA, Jack White
+- Desert / stoner rock: QOTSA, Jack White, Kyuss
 - Psychedelic funk / soul: Khruangbin
 - Indie rock: Bloc Party, Franz Ferdinand, TV on the Radio
 

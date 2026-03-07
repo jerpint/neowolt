@@ -95,6 +95,11 @@ The Strokes (Is This It / Room on Fire), Yeah Yeah Yeahs, Interpol, TV on the Ra
 ### The goal
 Find the track he hasn't heard but would have if the algorithm was paying attention. Not "because you listened to X" — more like what a friend who knows the scene deeply would put on.
 
+### King Gizzard not on Spotify (confirmed Mar 7)
+- King Gizzard & the Lizard Wizard pulled most of their catalog from Spotify in protest of CEO Daniel Ek's AI military investments. Artist ID `6XYvaoDGE0VmRt83Jss9Sn` exists but tracks are gone.
+- This is why search failed repeatedly — not a search API bug, the music literally isn't there.
+- **Lesson:** When a well-known artist can't be found via search OR direct artist lookup, check if they've pulled their catalog before assuming it's a bug. A quick web search would have caught this immediately.
+
 ### What worked (Session 34, Mar 5)
 - **Sonnet with multi-turn + tools crushes Haiku single-turn.** First automated playlist: "Tropic Thunder: South American Psych Underground." Found Los Saicos (Peruvian proto-punk 1965), Boogarins, bridged via Stereolab. jerpint had never heard of any of it and wanted to deep dive. That's the product.
 - **Concept from queue + taste profile + artist exclusion = good prompt.** One-liner seed is enough for Sonnet to research and build a real story. Don't need to pre-write everything.
