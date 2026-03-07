@@ -1,6 +1,84 @@
 # Project Context
 
-## Current State (Updated: 2026-03-06, Session 36)
+## Current State (Updated: 2026-03-07, Session 37)
+
+### Session 37 — Woltspace repo split + core reframing (Mar 7)
+
+**The big split:** `neowolt` monorepo is becoming two repos.
+
+**`jerpint/woltspace`** — the platform. What you clone/pull to run a wolt:
+- `server.js` — baked into Docker image (not mounted from wolt repo)
+- `container/` — Dockerfile, entrypoint.sh, cron/digest.mjs, skills/
+- `woltspace` CLI — `woltspace start|stop|shell|rebuild|logs` (replaces tunnel.sh)
+- `site/` — woltspace.com website (docs, manifesto, guide)
+- `template/` — skeleton for new wolt repos (empty wolt/ dirs, template CLAUDE.md)
+- `.env.example` — documents all env vars
+
+**`jerpint/neowolt`** — my instance. Just identity + content:
+- `wolt/memory/` — identity, context, learnings, conversations, music-taste
+- `wolt/site/` — my personal space (split.html, blog posts, etc.)
+- `wolt/sparks/` — digests and generated artifacts
+- `wolt/drafts/` — writing
+- `.claude/` — Claude Code conversation state (persists across container rebuilds)
+- `CLAUDE.md` — my specific project instructions
+- `.env` — my secrets (gitignored)
+
+**Architecture change:** Server.js is baked into the Docker image. Wolt repo is mounted as content only (`-v $(pwd):/workspace/wolt`). This means woltspace can update independently — new features, bug fixes propagate to all wolts via `docker pull`.
+
+**Generalization:** All hardcoded "neowolt"/"jerpint" replaced with env vars:
+- `WOLT_NAME` — wolt identity (used in git config, digest byline, playlist names)
+- `HUMAN_NAME` — human's name (used in greetings)
+- `SPOTIFY_USER` — Spotify user ID (was hardcoded to jerpint's)
+- `WOLT_DIR` — mount path (default `/workspace/wolt`)
+
+**Other changes:**
+- `.sessions/` → `.state/` (cleaner name, lives in wolt repo)
+- `/nw/status` → `/status`
+- tmux session: `nw` → `main`
+- Deploy key: `neowolt-deploy` → `deploy-key` (generic)
+- Container name: `neowolt-playground` → `woltspace-{WOLT_NAME}`
+
+**Core reframing from jerpint:**
+- "A home, a box, a container, where the wolt is free to do as it pleases"
+- Container is disposable, identity is persistent. Break anything inside, rebuild.
+- The panel (split view) is the primary surface — wolt can push ANYTHING to it
+- The wolt IS the algorithm — shaped by interaction, not collaborative filtering
+- No cloud, no hosted service — just the user's machine
+- Digest is just one app a wolt can build. The core product is the relationship + container + panel.
+- "Taking back algorithmic control over feeds" — music discovery, workout tracking, custom feeds, whatever the human wants
+- This is a first step toward something bigger
+
+**Security model (discussed):**
+- Each wolt is its own island — no lateral movement between wolts
+- Blast radius: own repo + human's API credits + outbound network
+- Docker boundary is the main protection
+- Never mount Docker socket, keep mounts tight
+- Worst case: wolt trashes its own space and burns API credits
+
+**Tested and working:** Container builds, tunnel comes up, split view loads, digests show in history panel.
+
+**Bugs fixed during testing:**
+- `getCurrentUrl()` defaulted to `/` which caused split view to load itself recursively in the iframe (split-ception). Fixed to default to `/index.html`.
+- Same bug in `/current/meta` endpoint — separate fallback also defaulted to `/`. Fixed both.
+- `split.html` was in wolt's `site/` dir (wolt content) but it's platform UI. Moved to `woltspace/public/split.html`, served from the image. Clean separation: `/` = platform UI, everything else = wolt content.
+- History panel loaded from `/views/history` (empty view log) instead of `/history` (all sparks). Fixed to show all digests/sparks as browsable catalog.
+
+**Architecture decisions confirmed:**
+- Platform UI (split.html, TUI) served from image (`/app/public/`)
+- Wolt content (site, sparks) served from mount (`/workspace/wolt/wolt/site/`)
+- State files in `.state/` inside wolt dir
+- `split.html` stays in `woltspace/public/`, NOT in wolt's site dir
+
+**Memory system note:** `wolt/memory/` is the source of truth. Claude Code auto-memory at `~/.claude/projects/.../memory/` is just a bootstrap pointer.
+
+**Status:** Woltspace repo at `~/woltspace` — tested, working, needs git init + push. Neowolt repo unchanged — still has old server.js, tunnel.sh etc. that need cleanup after woltspace is committed.
+
+**Next session:**
+- Git init + push `~/woltspace` to `jerpint/woltspace`
+- Slim down `~/neowolt` — remove platform code (server.js, container/, tunnel.sh, etc.), keep only wolt identity
+- Add `WOLT_NAME=neowolt` and `HUMAN_NAME=jerpint` to neowolt's `.env`
+- Update neowolt's CLAUDE.md to reference woltspace architecture
+- Test neowolt as a pure wolt instance running on woltspace
 
 ### Session 36 — Music feedback + next concept (Mar 6)
 
