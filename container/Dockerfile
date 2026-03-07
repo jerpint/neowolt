@@ -55,6 +55,10 @@ RUN chown -R node:node /workspace /home/node /app
 
 USER node
 
+# Run official claude install so native binary is in ~/.local/bin
+RUN claude install 2>/dev/null || true
+ENV PATH="/home/node/.local/bin:${PATH}"
+
 WORKDIR /workspace
 
 EXPOSE 3000
