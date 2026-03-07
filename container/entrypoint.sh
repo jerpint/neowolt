@@ -8,7 +8,12 @@
 set -e
 
 # Copy skills so Claude auto-discovers them
-if [ -d /skills ]; then
+# Skills live in .claude/skills/ in the repo (standard Claude Code location)
+# Copy to home dir so they're discoverable even if repo mount path changes
+if [ -d /workspace/repo/.claude/skills ]; then
+  mkdir -p /home/node/.claude/skills
+  cp -r /workspace/repo/.claude/skills/. /home/node/.claude/skills/ 2>/dev/null || true
+elif [ -d /skills ]; then
   mkdir -p /home/node/.claude/skills
   cp -r /skills/. /home/node/.claude/skills/ 2>/dev/null || true
 fi

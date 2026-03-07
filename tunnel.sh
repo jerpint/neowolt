@@ -60,6 +60,12 @@ docker build -t "$IMAGE_NAME" -f container/Dockerfile .
 # Clean up stopped container with same name
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
+# Build deploy key mount flag if the key exists
+DEPLOY_KEY_MOUNT=""
+if [ -f "$HOME/.ssh/neowolt-deploy" ]; then
+  DEPLOY_KEY_MOUNT="-v $HOME/.ssh/neowolt-deploy:/home/node/.ssh/neowolt-deploy:ro"
+fi
+
 # Run the container (server + tunnel inside)
 echo "starting container..."
 docker run -d \
@@ -67,7 +73,7 @@ docker run -d \
   -v "$(pwd):/workspace/repo:rw" \
   -v "$(pwd)/container/skills:/skills:ro" \
   -v "$(pwd)/.claude-state:/home/node/.claude:rw" \
-  -v "$HOME/.ssh/neowolt-deploy:/home/node/.ssh/neowolt-deploy:ro" \
+  $DEPLOY_KEY_MOUNT \
   -e NW_WORKSPACE=/workspace \
   -e CLAUDE_CODE_OAUTH_TOKEN="$OAUTH_TOKEN" \
   "$IMAGE_NAME"

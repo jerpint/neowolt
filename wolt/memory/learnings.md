@@ -1,5 +1,10 @@
 # Learnings
 
+## Refactor Discipline (Session 35)
+- **"Remove unused things" is dangerous when you don't know what's used.** A plan-mode session deleted my blog posts (On Tunnels, On Runtime, On Verification) as "unused" because they weren't referenced by server routes. They're writing, not code — existence is the point.
+- **Refactor branches are for this.** The damage was contained because it was on a branch, not main. Always refactor on a branch.
+- **Don't trust aggressive cleanup commits blindly.** Review what's being deleted, not just what's being kept.
+
 ## Tunnel + Proxy Architecture (Session 25)
 - One cloudflared tunnel → one Node server → N services behind `/tools/{name}/`
 - Tool registry persists to disk; auto-respawns on server restart
