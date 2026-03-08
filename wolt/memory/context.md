@@ -1,6 +1,41 @@
 # Project Context
 
-## Current State (Updated: 2026-03-07, Session 37)
+## Current State (Updated: 2026-03-07, Session 39)
+
+### Session 39 — Onboarding UX polish (Mar 7)
+
+**Polished the `woltspace init` flow end-to-end.**
+
+**Architecture change: browser-first, single claude**
+- Dropped host-claude approach. Everything happens in the container TUI.
+- `woltspace init` scaffolds, builds container, shows tunnel URL → user opens in browser
+- Container auto-starts claude in tmux via `.first-run` flag
+- First run: user authenticates Claude via browser (one-time), then `/create-wolt` runs directly
+- OAuth token persists in `~/wolts/<name>/.claude/.credentials.json` via mount
+- Subsequent `woltspace init` reuses token from existing wolts in `~/wolts/`
+
+**What we built/changed:**
+- Wolts now created under `~/wolts/<name>` (single home for all wolts)
+- `woltspace restart` — restart container without rebuild (new tunnel URL)
+- `woltspace start` + `rebuild` are browser-first (no local `docker exec` claude)
+- Entrypoint auto-starts claude in tmux on every boot (first-run: `/create-wolt`, normal: `hey $WOLT_NAME`)
+- Entrypoint pre-trusts workspace (`.claude.json` with `hasTrustDialogAccepted`)
+- Removed tmux mouse mode; added JS wheel→tmux-copy-mode scroll (selection works in browser)
+- `nw()` shell shortcut → `wolt()`, uses `$WOLT_NAME`
+- Welcome page guides user through auth/onboarding states
+- Create-wolt skill rewritten with personality (not a setup wizard)
+  - Wolt reads its own name from .env
+  - Pushes welcome spark to viewport on first contact (the "oh cool" moment)
+  - Tone: capable with character, not corporate, not performative
+
+**Open items:**
+- Guide + llms.txt still reference old repo — need update for `woltspace init` flow
+- Scroll via tmux copy-mode needs testing (may feel janky)
+- Onboarding skill untested end-to-end with latest changes
+
+**Commits in woltspace repo:**
+- `4e70afc` — Polish init flow: single claude, browser-first onboarding
+- `5e14483` — Polish onboarding UX: personality, scroll, auth reuse
 
 ### Session 37 — Woltspace repo split + core reframing (Mar 7)
 
