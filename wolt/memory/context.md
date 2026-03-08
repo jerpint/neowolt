@@ -34,12 +34,25 @@
 - agents.md created — full technical reference for agents (repo structure, container, server routes, bot, digest, skills, CLI)
 - llms.txt = public website (woltspace.com), agents.md = repo-level reference
 
+**Voice messages (Session 42 continued):**
+- Telegram bot now handles voice/audio messages via OpenAI Whisper
+- Download .ogg → transcribe → route as text with `[voice message]` prefix
+- Requires `OPENAI_API_KEY` in `.env`
+- `openai` added to bot dependencies
+
+**Dev mode:**
+- `woltspace start --dev` mounts platform source rw from ~/woltspace
+- Edits to server.js auto-restart via `node --watch`
+- Bot needs manual restart: `pkill -f telegram_adapter && cd /app && uv run --project bot/pyproject.toml python -m bot.telegram_adapter &`
+- Template CLAUDE.md documents bot restart for all wolts
+
 **Where we left off — next session starts here:**
-- Woltspace repo going public tomorrow — site HTML pages need updating first (index, guide, manifesto, directory still reference old stuff)
+- Woltspace repo going public — site HTML pages need updating first (index, guide, manifesto, directory still reference old stuff)
 - context.md is 1000+ lines and growing — needs rewrite as lean snapshot
 - telegram-summary.md not yet implemented (periodic distillation of chat history)
 - Claude Code sessions still don't update memory after completing tasks
 - Slack adapter coming soon (bot architecture already supports it — just needs slack_adapter.py)
+- Image gen + TTS not yet added (OpenAI key is there, infrastructure ready)
 - nw container needs rebuild to pick up all changes
 
 ### Session 41 — Split view as unit of page + bot tool calling (Mar 8)
