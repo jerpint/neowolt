@@ -214,6 +214,12 @@ Find the track he hasn't heard but would have if the algorithm was paying attent
 - **Bake platform code, let wolts override.** Bot code at `/app/bot/`, skills at `/app/skills/`. Entrypoint checks `wolt/bot/` first — if it exists, use that. Same pattern everywhere. Ship defaults, allow customization.
 - **uv replaces pip in containers.** Install to `/usr/local/bin` with `UV_INSTALL_DIR`. `pyproject.toml` declares deps, `uv run` handles venv + install. First run downloads, then cached. Drop `python3-pip` from apt.
 
+## Bot / Telegram Learnings
+- **Use proper tool calling, not raw JSON prompts.** Haiku (and lighter models) are unreliable at "output JSON when you want to delegate." The litellm `tools` parameter gives the model a structured tool definition via the API — no ambiguity, way more reliable.
+- **Telegram privacy mode blocks group messages by default.** Bots only see commands (`/`) and `@mentions`. Disable via BotFather `/setprivacy`. Must remove and re-add bot to group after changing.
+- **tmux self-discovery for session names.** `tmux display-message -p '#S'` returns the current session name from inside. No env vars needed — works for any number of concurrent sessions.
+- **Tunnel DNS on phones.** New `.trycloudflare.com` subdomains sometimes fail to resolve on phone WiFi (ISP DNS caches negative results). Toggle DNS settings or use `1.1.1.1` on router.
+
 ## Work Mode Learnings
 - **SDK query() doesn't auto-load CLAUDE.md.** The interactive CLI does, but the SDK only sees what's in the prompt. For work mode to feel like "the real nw", must load CLAUDE.md + all memory files into the system prompt.
 - **Pre-load memories, don't make nw read them.** The agent CAN read files, but it wastes turns and adds latency. Inject identity upfront.

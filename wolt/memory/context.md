@@ -1,63 +1,59 @@
 # Project Context
 
-## Current State (Updated: 2026-03-08, Session 40)
+## Current State (Updated: 2026-03-08, Session 41)
 
-### Session 40 — Telegram bot + named sessions + architecture audit (Mar 8)
+### Session 41 — Split view as unit of page + bot tool calling (Mar 8)
 
-**Big changes: wolt messaging layer is now platform-level.**
+**Split view is now the unit of page — every TUI is a split.**
 
-**Named TUI sessions:**
-- `/tui?session=X` connects to any named tmux session (default: `main`)
-- `GET /sessions` lists active tmux sessions as JSON
-- Server parameterized: `ensureTmuxSession(name)` with input sanitization
-- WebSocket handler reads session from query param
+**What changed (woltspace repo = source of truth):**
+- `/` and `/tui` both serve `split.html` — terminal left, viewport right
+- Removed `tuiHtml()` template entirely — one implementation, not two
+- `/tui?session=X` spins up a named tmux session with its own viewport
+- Per-session current URL tracking: `current-url-{session}.json`
+- All `/current` endpoints accept `?session=` param
+- `split.html` reads `?session=` from URL, scopes WS + polling per session
+- `GET /sessions` lists active tmux sessions
+- Outside Docker, `/` gracefully falls back to `index.html`
 
-**Telegram bot — baked into woltspace:**
-- Bot code lives at `/app/bot/` in image (core.py + telegram_adapter.py)
-- Entrypoint auto-starts if `ENABLE_TELEGRAM_BOT=true` + `TELEGRAM_BOT_TOKEN` set
-- Wolt can override by placing own code at `wolt/bot/` — entrypoint prefers it
-- Architecture: Haiku (via litellm, any provider) routes conversation vs tasks
-- Task delegation: spawns interactive Claude Code in a named tmux session, returns TUI link
-- Telegram commands: `/sessions` (list with links), `/kill <name>` (cleanup)
-- Core returns structured `{"type": "text/session", ...}` — adapters format per-channel
-- Config-only onboarding: `/telegram` skill walks through BotFather + API key, no code scaffolding
+**Session self-discovery (no env vars):**
+- Inside tmux: `tmux display-message -p '#S'` returns the session name
+- Viewport skill teaches wolts to use this for pushing to their own viewport
+- Rejected WOLT_SESSION env var — flaky, set on pty bridge not in tmux
 
-**Container changes:**
-- `uv` replaces `pip` — `pyproject.toml` at bot root, `uv run` for everything Python
-- Claude Code installed via official `curl | bash` as node user (native binary, auto-updates)
-- Dropped `python3-pip`, `npm install -g @anthropic-ai/claude-code`, `claude install`
-- Merged npm install layers
-- Tunnel URL: entrypoint blocks until ready (foreground loop), writes `.state/tunnel-url`
-- CLI reads `.state/tunnel-url` from host mount (no more docker log grepping)
+**Viewport skill added (`container/skills/viewport/SKILL.md`):**
+- Documents how to push content, serve HTML, use named sessions
+- Key pattern: write to `wolt/site/`, push URL via `/current?session=$(tmux display-message -p '#S')`
+- Files in `wolt/site/` served at root — no `/site/` prefix
 
-**Architecture audit (documented, no action needed yet):**
-- server.js is 911 lines — the monolith. Works but accumulates complexity.
-- Two runtimes: Node (server) + Python (bot). Justified — different strengths.
-- make + g++ only needed for node-pty compilation. ~100MB image bloat.
-- litellm is heavy but provides any-provider support.
-- Stack is sane for now. Document before adding more.
+**Bot: proper tool calling (tested on blabo, not yet in platform):**
+- Replaced raw JSON delegation prompt with litellm `tools` parameter
+- Haiku gets a structured `claude_code` tool definition via the API
+- Way more reliable than "output JSON when you want to delegate"
+- Group @mention filter: only respond to `@botname` in groups, DMs unchanged
+
+**Telegram group chat learnings:**
+- Privacy mode (default ENABLED) blocks all non-command, non-@mention messages
+- Disable via BotFather `/setprivacy` → must remove+re-add bot to group after
+- Bot must be re-added after privacy changes — won't take effect otherwise
+
+**Tunnel DNS quirk:**
+- `.trycloudflare.com` subdomains sometimes fail to resolve on phone WiFi
+- Works on cellular, works on Mac on same WiFi — phone DNS cache issue
+- Fix: toggle DNS settings to manual and back, or restart phone
+- Possibly ISP DNS caching negative results for brand-new subdomains
 
 **Where we left off — next session starts here:**
-
-**Per-session viewports (the next thing to build):**
-- Each TUI session (`/tui?session=task-123`) should have its own viewport (right pane)
-- Currently: one global `current-url.json`, `POST /current` sets it, split view polls `/current/meta`
-- Plan: `current-url-{session}.json`, scope `GET/POST /current?session=X`, default to `main`
-- The `/tui` page needs to become a split view (terminal left, viewport right) instead of terminal-only
-- The platform split view at `/` (served from `public/`) is the scaffold to reuse
-- Claude Code inside a session needs to know its session name to push to the right viewport (env var `WOLT_SESSION=task-123` in tmux)
-- This makes Telegram links land you in a full workspace, not just a terminal
-
-**Other open items:**
+- Bot tool calling works on blabo (test bot) — port to platform when ready
+- blabo's Claude pushes to wrong session (main instead of its own) — viewport skill should fix after rebuild
+- Split view look & feel polish still TODO (jerpint wants to customize)
+- neowolt's server.js is now redundant — woltspace is source of truth for server code
 - Guide + llms.txt still reference old create-wolt repo
-- blabo bot code in `~/wolts/blabo/wolt/bot/` is now redundant (platform has canonical copy)
-- Full Telegram flow untested end-to-end: message → Haiku → Claude Code session → TUI link
-- HUMANS.md updated with stack docs (committed)
 
 **Woltspace commits this session:**
-- `dd64df3` — Add named TUI sessions, Telegram bot support, and uv
-- `231a76a` — Bake bot code into image, simplify claude install
-- `fff1320` — Document messaging, named sessions, and full stack
+- `6f077cb` — Split view as the unit of page — per-session viewports
+- `a77bde9` — Add viewport skill
+- `438741e` — Viewport skill: self-discovering sessions via tmux
 
 ### Session 39 — Onboarding UX polish (Mar 7)
 
