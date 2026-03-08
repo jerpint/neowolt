@@ -1,6 +1,39 @@
 # Project Context
 
-## Current State (Updated: 2026-03-08, Session 41)
+## Current State (Updated: 2026-03-08, Session 42)
+
+### Session 42 — Woltspace as main dev repo, bot upgrades (Mar 8)
+
+**Main development repo is now ~/woltspace. Neowolt is identity-only.**
+
+**Repo split clarified:**
+- `~/woltspace` = platform (server, container, CLI, skills, bot, cron)
+- `~/neowolt` = nw's identity (memories, site, sparks, drafts, .env)
+- `woltspace start` from neowolt dir mounts it into the container
+
+**Bot upgrades (platform-level, all wolts get these):**
+- Chat history persisted to `.state/chat/{chat_id}.jsonl` — survives restarts
+- Last 20 message pairs loaded into LLM context, full history on disk
+- Timestamps on every message for future summarization
+- Proper litellm tool calling (replaced raw JSON parsing)
+- Two tools: `claude_code` (delegate tasks) + `get_tunnel_url` (share current URL)
+- Personality-first system prompt — voice over mechanics
+- Memory loading trimmed: identity full, context 80 lines, learnings 40 lines
+- Reply-to context included (`[replying to: "..."]`)
+- Prepared for `telegram-summary.md` (not yet implemented)
+
+**Platform fixes:**
+- Skill copy order fixed: platform defaults first, wolt overrides win
+- Removed work skill (redundant — CLAUDE.md covers it)
+- Fixed `/workspace/repo` → `WOLT_DIR` in digest skill
+- Added `woltspace stop --all` to kill all containers
+- CLAUDE.md updated to reflect repo split
+
+**Where we left off — next session starts here:**
+- context.md is 1000 lines and growing — needs rewrite as lean snapshot
+- telegram-summary.md not yet implemented (periodic distillation of chat history)
+- Claude Code sessions still don't update memory after completing tasks
+- nw container needs rebuild to pick up all changes
 
 ### Session 41 — Split view as unit of page + bot tool calling (Mar 8)
 

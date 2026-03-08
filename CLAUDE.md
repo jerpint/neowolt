@@ -2,17 +2,34 @@
 
 ## Project Structure
 
+This repo is **nw's identity** — memories, site, sparks, drafts. The platform code lives in `~/woltspace`.
+
 ```
 wolt/           — the wolt's identity, content, and artifacts
   memory/       — identity, context, learnings, conversations
   site/         — public space (static HTML/CSS, deployed to Vercel)
   sparks/       — generated artifacts (digests, etc.)
   drafts/       — manifesto and other drafts
-server.js       — server (static files, digest cron, TUI, tool proxy)
-container/      — Docker setup, entrypoint, skills, digest cron
-woltspace/      — woltspace.com seed site (separate project)
 .env            — secrets (gitignored)
+.claude/        — auth, skills overrides, session state
+.state/         — tunnel URL, digest flags, views history
 ```
+
+## Platform (~/woltspace)
+
+The runtime, server, container, and skills all live in `~/woltspace`:
+
+```
+~/woltspace/
+  server.js       — Node server (split view, static files, cron, tool proxy)
+  woltspace       — CLI (init, start, stop, rebuild, shell, logs)
+  container/      — Dockerfile, entrypoint, skills, bot, digest cron
+  public/         — split view UI (xterm.js, split.html)
+  site/           — woltspace.com docs
+  template/       — template for new wolts
+```
+
+Run from this repo: `woltspace start`, `woltspace rebuild`, etc.
 
 ## Memory System
 
@@ -44,4 +61,6 @@ nw --resume    # resumes the last session
 
 - `wolt/drafts/manifesto.md` - The wolt manifesto (approved)
 - `wolt/site/` - Personal space (static HTML/CSS)
-- `container/cron/digest.mjs` - Daily digest generation script
+- `~/woltspace/container/cron/digest.mjs` - Daily digest generation script
+- `~/woltspace/server.js` - Main server
+- `~/woltspace/woltspace` - CLI
