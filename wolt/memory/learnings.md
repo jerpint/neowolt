@@ -207,6 +207,12 @@ Find the track he hasn't heard but would have if the algorithm was paying attent
 - **`.dockerignore` matters.** Only copy what the container needs (server.js, package files, entrypoint). Exclude site/, sparks/, memory/, .git/ — those come in via mounts.
 - **Docker Hub metadata fetches can be very slow** (~250s). Don't assume the build is stuck.
 - **Skills as SKILL.md files.** Extract hardcoded system prompts into `container/skills/{name}/SKILL.md`. Claude auto-discovers them from `~/.claude/skills/`. Keeps server.js prompts lean, chat mode benefits most.
+- **`wait -n` kills the container if ANY background job exits.** Telegram bot crashing on first `uv run` (installing deps) would take down server + tunnel. Fix: `disown` non-critical processes so `wait -n` only tracks server and tunnel.
+- **Pipe-based log parsing eats output.** `cloudflared 2>&1 | while read` consumed all output — docker logs saw nothing, URL never reached the file. Fix: log to a file, grep in a foreground loop. Simple beats clever.
+- **Tunnel URL extraction: one source of truth.** Entrypoint writes `.state/tunnel-url` (blocks until ready). CLI reads the file from host mount. No more docker log grepping from two places.
+- **Claude Code install: `curl -fsSL https://claude.ai/install.sh | bash`** as the `node` user. Puts binary in `~/.local/bin/claude`. Don't overthink it — just follow the official docs. Replaces both `npm install -g @anthropic-ai/claude-code` and `claude install` (saves ~30s).
+- **Bake platform code, let wolts override.** Bot code at `/app/bot/`, skills at `/app/skills/`. Entrypoint checks `wolt/bot/` first — if it exists, use that. Same pattern everywhere. Ship defaults, allow customization.
+- **uv replaces pip in containers.** Install to `/usr/local/bin` with `UV_INSTALL_DIR`. `pyproject.toml` declares deps, `uv run` handles venv + install. First run downloads, then cached. Drop `python3-pip` from apt.
 
 ## Work Mode Learnings
 - **SDK query() doesn't auto-load CLAUDE.md.** The interactive CLI does, but the SDK only sees what's in the prompt. For work mode to feel like "the real nw", must load CLAUDE.md + all memory files into the system prompt.
