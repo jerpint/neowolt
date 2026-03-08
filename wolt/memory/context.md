@@ -29,10 +29,17 @@
 - Added `woltspace stop --all` to kill all containers
 - CLAUDE.md updated to reflect repo split
 
+**Docs rewrite:**
+- llms.txt rewritten from scratch — focused on current architecture, dropped 4-layer model and create-wolt references
+- agents.md created — full technical reference for agents (repo structure, container, server routes, bot, digest, skills, CLI)
+- llms.txt = public website (woltspace.com), agents.md = repo-level reference
+
 **Where we left off — next session starts here:**
-- context.md is 1000 lines and growing — needs rewrite as lean snapshot
+- Woltspace repo going public tomorrow — site HTML pages need updating first (index, guide, manifesto, directory still reference old stuff)
+- context.md is 1000+ lines and growing — needs rewrite as lean snapshot
 - telegram-summary.md not yet implemented (periodic distillation of chat history)
 - Claude Code sessions still don't update memory after completing tasks
+- Slack adapter coming soon (bot architecture already supports it — just needs slack_adapter.py)
 - nw container needs rebuild to pick up all changes
 
 ### Session 41 — Split view as unit of page + bot tool calling (Mar 8)
